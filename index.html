@@ -1,0 +1,925 @@
+import React, { useState, useEffect } from 'react';
+import { Card, HandItem, GameMode, GameScreen } from './types';
+import { ALL_PLAYERS, getRandomDeck } from './data/cards';
+import { SoccerCard } from './components/SoccerCard';
+import { 
+  playSoundCoinFlip, 
+  playSoundCard, 
+  playSoundSuccess, 
+  playSoundBust, 
+  playRefereeWhistle 
+} from './utils/audio';
+
+function App() {
+  const [screen, setScreen] = useState<GameScreen>('HOME');
+  const [mode, setMode] = useState<GameMode>('CPU');
+  const [isLocalMp, setIsLocalMp] = useState<boolean>(true); // Local amigo contra amigo
+  
+  // Baralhos de cada jogador
+  const [playerDeck, setPlayerDeck] = useState<Card[]>([]);
+  const [opponentDeck, setOpponentDeck] = useState<Card[]>([]);
+  
+  // Mão ativa dos jogadores
+  const [playerHand, setPlayerHand] = useState<HandItem[]>([]);
+  const [opponentHand, setOpponentHand] = useState<HandItem[]>([]);
+  
+  // Estados do Jogo Blackjack
+  const [activeTurn, setActiveTurn] = useState<'player' | 'opponent'>('player');
+  const [isRevealed, setIsRevealed] = useState<boolean>(false);
+  const [mpPhase, setMpPhase] = useState<'YOUR_TURN' | 'WAITING_TURN'>('YOUR_TURN');
+  
+  // Placar do Jogo
+  const [scoreHome, setScoreHome] = useState<number>(0);
+  const [scoreAway, setScoreAway] = useState<number>(0);
+  
+  // Estado de sorteio inicial da moeda (Bola)
+  const [coinWinner, setCoinWinner] = useState<'player' | 'opponent' | null>(null);
+  const [flipping, setFlipping] = useState<boolean>(false);
+  const [notification, setNotification] = useState<string>('');
+  
+  // Carta coringa ouro que espera atribuição de valor (1 ou 11)
+  const [goldCardToAssign, setGoldCardToAssign] = useState<{
+    card: Card;
+    handIndex: number;
+    target: 'player' | 'opponent';
+  } | null>(null);
+
+  // Estados de Draft / Escalação inicial alternada
+  const [draftState, setDraftState] = useState<'P1_C1' | 'P2_C1' | 'P1_C2' | 'P2_C2' | 'PLAY_PHASE' | null>(null);
+  const [startingPlayer, setStartingPlayer] = useState<'player' | 'opponent'>('player');
+  
+  const [copiedCodeCode, setCopiedCodeCode] = useState<boolean>(false);
+  const [showHowToPlay, setShowHowToPlay] = useState<boolean>(false);
+
+  // Dispara apito inicial ao clicar na tela
+  useEffect(() => {
+    const triggerInitialGreeting = () => {
+      // Deixa pronto o contexto de áudio
+      window.removeEventListener('click', triggerInitialGreeting);
+    };
+    window.addEventListener('click', triggerInitialGreeting);
+    return () => window.removeEventListener('click', triggerInitialGreeting);
+  }, []);
+
+  const triggerNotification = (msg: string) => {
+    setNotification(msg);
+  };
+
+  const getUniqueId = () => Math.random().toString(36).substring(2, 9);
+
+  // Calcula gols (soma dos valores táticos) sem estourar 21
+  const calculateTotal = (hand: HandItem[]): number => {
+    return hand.reduce((sum, h) => sum + h.assignedValue, 0);
+  };
+
+  const startCoinFlipPhase = (selectedMode: GameMode) => {
+    setMode(selectedMode);
+    setCoinWinner(null);
+    setFlipping(false);
+    setNotification('Escolha Caro ou Coroa para dar o pontapé inicial e decidir quem escala primeiro!');
+    setScreen('COIN_FLIP');
+  };
+
+  const handleCoinSelection = () => {
+    if (flipping) return;
+    setFlipping(true);
+    playSoundCoinFlip();
+    
+    setTimeout(() => {
+      // Sorteio justo da bola de saída
+      const isPlayerWinner = Math.random() < 0.5;
+      const winner = isPlayerWinner ? 'player' : 'opponent';
+      setCoinWinner(winner);
+      setFlipping(false);
+      
+      playRefereeWhistle(); // Apito do árbitro na saída de bola!
+      
+      if (winner === 'player') {
+        triggerNotification("Você ganhou a Moeda da Sorte! Sai com a bola para escalar a primeira carta.");
+      } else {
+        triggerNotification(mode === 'CPU' ? "A CPU ganhou o sorteio de campo/bola! Ela escala a primeira carta." : "Seu Amigo ganhou a saída de bola e escala primeiro.");
+      }
+      
+      setTimeout(() => {
+        startHand(winner);
+      }, 2500);
+    }, 1500);
+  };
+
+  // Prepara as mãos e aguarda a fase de Draft alternada
+  const startHand = (startingPlayerVal: 'player' | 'opponent') => {
+    const pDeck = getRandomDeck();
+    const oDeck = getRandomDeck();
+    
+    setPlayerDeck(pDeck);
+    setOpponentDeck(oDeck);
+    setIsRevealed(false);
+    setMpPhase('YOUR_TURN');
+
+    // Inicializa mãos vazias para começar as escolhas 1 a 1
+    const pHand: HandItem[] = [];
+    const oHand: HandItem[] = [];
+
+    setPlayerHand(pHand);
+    setOpponentHand(oHand);
+
+    setStartingPlayer(startingPlayerVal);
+    setDraftState('P1_C1');
+    setActiveTurn(startingPlayerVal);
+    setScreen('GAME');
+
+    if (startingPlayerVal === 'player') {
+      triggerNotification("Sua vez! Puxe o seu 1º jogador para iniciar a escalação.");
+    } else {
+      triggerNotification(mode === 'CPU' ? "CPU venceu o sorteio e puxa a primeira carta..." : "Sorteio deu bola do Amigo! Amigo escolhe o dele inicial.");
+      if (mode === 'CPU') {
+        setTimeout(() => {
+          handleDraftDraw('opponent', pDeck, oDeck, pHand, oHand, 'P1_C1');
+        }, 1500);
+      }
+    }
+  };
+
+  // Autômato de Fase de Escolhas Alternadas (DRAFT / ESCALAÇÃO GERAL)
+  const advanceDraftPhase = (
+    pHand: HandItem[], 
+    oHand: HandItem[], 
+    pDeckCur?: Card[], 
+    oDeckCur?: Card[],
+    overrideDraftState?: 'P1_C1' | 'P2_C1' | 'P1_C2' | 'P2_C2'
+  ) => {
+    const curDraftState = overrideDraftState || draftState;
+    const p1 = startingPlayer;
+    const p2 = startingPlayer === 'player' ? 'opponent' : 'player';
+
+    const pD = pDeckCur || playerDeck;
+    const oD = oDeckCur || opponentDeck;
+
+    if (curDraftState === 'P1_C1') {
+      setDraftState('P2_C1');
+      setActiveTurn(p2);
+      if (p2 === 'opponent') {
+        triggerNotification(mode === 'CPU' ? "Adversário escolhendo primeiro jogador..." : "Vez do Amigo escolher seu 1º jogador!");
+        if (mode === 'CPU') {
+          setTimeout(() => handleDraftDraw('opponent', pD, oD, pHand, oHand, 'P2_C1'), 1500);
+        }
+      } else {
+        triggerNotification("Você escalou seu primeiro craque! Agora o Amigo escolhe o dele.");
+      }
+    } else if (curDraftState === 'P2_C1') {
+      setDraftState('P1_C2');
+      setActiveTurn(p1);
+      if (p1 === 'opponent') {
+        triggerNotification(mode === 'CPU' ? "Oponente selecionando segundo jogador..." : "Vez do Amigo escolher seu 2º jogador!");
+        if (mode === 'CPU') {
+          setTimeout(() => handleDraftDraw('opponent', pD, oD, pHand, oHand, 'P1_C2'), 1500);
+        }
+      } else {
+        triggerNotification("Adversário escalou o primeiro craque! Sua vez de escolher o segundo.");
+      }
+    } else if (curDraftState === 'P1_C2') {
+      setDraftState('P2_C2');
+      setActiveTurn(p2);
+      if (p2 === 'opponent') {
+        triggerNotification(mode === 'CPU' ? "CPU fechando a zaga com o segundo reforço..." : "Vez do Amigo fechar sua escalação!");
+        if (mode === 'CPU') {
+          setTimeout(() => handleDraftDraw('opponent', pD, oD, pHand, oHand, 'P2_C2'), 1500);
+        }
+      } else {
+        triggerNotification("Você escolheu seu segundo reforço! Amigo escala o último dele para terminar.");
+      }
+    } else if (curDraftState === 'P2_C2') {
+      // Draft terminado! Agora vamos para o jogo real onde podem pedir carta ou parar para não estourar 21
+      setDraftState('PLAY_PHASE');
+      setActiveTurn(p1);
+      
+      if (p1 === 'player') {
+        triggerNotification("Escalações fechadas e aprovadas! Sua tática. Decida se quer Puxar Carta ou Parar.");
+      } else {
+        triggerNotification("Times definidos na quadra! Inteligência Artificial decide os lances...");
+        if (mode === 'CPU') {
+          setTimeout(() => {
+            runCpuLogicWithStartingDeck(oHand, pHand, oD);
+          }, 1500);
+        }
+      }
+    }
+  };
+
+  // Compra uma carta alternada na fase de draft
+  const handleDraftDraw = (
+    who: 'player' | 'opponent',
+    pDeckParam?: Card[],
+    oDeckParam?: Card[],
+    pHandParam?: HandItem[],
+    oHandParam?: HandItem[],
+    overrideDraftState?: 'P1_C1' | 'P2_C1' | 'P1_C2' | 'P2_C2'
+  ) => {
+    const curDraftState = overrideDraftState || draftState;
+    const curPHand = pHandParam || playerHand;
+    const curOHand = oHandParam || opponentHand;
+    const curPDeck = pDeckParam || playerDeck;
+    const curODeck = oDeckParam || opponentDeck;
+
+    if (who === 'player') {
+      const deckCopy = [...curPDeck];
+      const drawn = deckCopy.shift();
+      if (!drawn) return;
+      setPlayerDeck(deckCopy);
+      playSoundCard();
+
+      const newItem: HandItem = { id: getUniqueId(), card: drawn, assignedValue: drawn.blackjackValue };
+      const nextHand = [...curPHand, newItem];
+      setPlayerHand(nextHand);
+
+      // Se pegar carta ouro (ouro), abre painel especial de escolha
+      if (drawn.isGold) {
+        setGoldCardToAssign({
+          card: drawn,
+          handIndex: nextHand.length - 1,
+          target: 'player'
+        });
+        return;
+      }
+
+      advanceDraftPhase(nextHand, curOHand, deckCopy, curODeck, curDraftState || undefined);
+    } else {
+      const deckCopy = [...curODeck];
+      const drawn = deckCopy.shift();
+      if (!drawn) return;
+      setOpponentDeck(deckCopy);
+      playSoundCard();
+
+      let assigned = drawn.blackjackValue;
+      if (drawn.isGold) {
+        assigned = 11; // CPU sempre prioriza valor alto da lenda
+      }
+
+      const newItem: HandItem = { id: getUniqueId(), card: drawn, assignedValue: assigned };
+      const nextHand = [...curOHand, newItem];
+      setOpponentHand(nextHand);
+
+      advanceDraftPhase(curPHand, nextHand, curPDeck, deckCopy, curDraftState || undefined);
+    }
+  };
+
+  // Registra a mudança de valor tático (1 ou 11) de uma lenda
+  const handleAssignGoldValue = (value: number) => {
+    if (!goldCardToAssign) return;
+    const { handIndex, target } = goldCardToAssign;
+
+    const updated = target === 'player' ? [...playerHand] : [...opponentHand];
+    updated[handIndex].assignedValue = value;
+
+    if (target === 'player') {
+      setPlayerHand(updated);
+      playSoundCard();
+      
+      const newTotal = updated.reduce((sum, h) => sum + h.assignedValue, 0);
+      setGoldCardToAssign(null);
+
+      if (draftState && draftState !== 'PLAY_PHASE') {
+        const pStateAtAssign = draftState;
+        setTimeout(() => {
+          advanceDraftPhase(updated, opponentHand, undefined, undefined, pStateAtAssign);
+        }, 500);
+      } else {
+        if (newTotal > 21) {
+          triggerNotification(`Atenção: Estourou da tática com ${newTotal} pontos! Fim do seu ataque.`);
+          setTimeout(() => handleStandAction(), 1000);
+        }
+      }
+    } else {
+      updated[handIndex].assignedValue = value;
+      setOpponentHand(updated);
+      setGoldCardToAssign(null);
+    }
+  };
+
+  // Pede mais uma carta (HIT) no jogo normal
+  const handleHitCard = () => {
+    if (flipping || goldCardToAssign) return;
+
+    const deckCopy = [...playerDeck];
+    const drawn = deckCopy.shift();
+    if (!drawn) {
+      triggerNotification("Baralho esgotado do setor de ataque!");
+      return;
+    }
+
+    setPlayerDeck(deckCopy);
+    playSoundCard();
+
+    const newItem: HandItem = { id: getUniqueId(), card: drawn, assignedValue: drawn.blackjackValue };
+    const nextHand = [...playerHand, newItem];
+    setPlayerHand(nextHand);
+
+    // Avaliar se puxe gerou Gold card
+    if (drawn.isGold) {
+      setGoldCardToAssign({
+        card: drawn,
+        handIndex: nextHand.length - 1,
+        target: 'player'
+      });
+      return;
+    }
+
+    const total = calculateTotal(nextHand);
+    if (total > 21) {
+      playSoundBust();
+      triggerNotification(`Golaço Contra! Estourou com ${total} pontos.`);
+      setTimeout(() => {
+        handleStandAction();
+      }, 1200);
+    } else {
+      triggerNotification(`Tática de ataque atualiza para ${total} gols/pontos. Deseja pedir mais elenco ou parar?`);
+    }
+  };
+
+  // Compra para Multiplayer Local do Amigo
+  const handleLocalOpponentHit = () => {
+    if (flipping || goldCardToAssign) return;
+
+    const deckCopy = [...opponentDeck];
+    const drawn = deckCopy.shift();
+    if (!drawn) return;
+
+    setOpponentDeck(deckCopy);
+    playSoundCard();
+
+    const newItem: HandItem = { id: getUniqueId(), card: drawn, assignedValue: drawn.blackjackValue };
+    const nextHand = [...opponentHand, newItem];
+    setOpponentHand(nextHand);
+
+    if (drawn.isGold) {
+      setGoldCardToAssign({
+        card: drawn,
+        handIndex: nextHand.length - 1,
+        target: 'opponent'
+      });
+      return;
+    }
+
+    const total = calculateTotal(nextHand);
+    if (total > 21) {
+      playSoundBust();
+      triggerNotification(`Amigo ultrapassou o limite tático! Fez ${total} pontos e estourou.`);
+      setTimeout(() => {
+        handleStandAction();
+      }, 1250);
+    } else {
+      triggerNotification(`Amigo agora soma ${total} pontos. Deseja puxar ou parar?`);
+    }
+  };
+
+  // Parar jogada (STAND)
+  const handleStandAction = () => {
+    if (mode === 'CPU') {
+      if (activeTurn === 'player') {
+        setActiveTurn('opponent');
+        triggerNotification("Você fechou seu ataque! Agora CPU vai tentar reverter a diferença.");
+        setTimeout(() => {
+          runCpuLogicWithStartingDeck(opponentHand, playerHand, opponentDeck);
+        }, 1500);
+      } else {
+        resolveMatchResult();
+      }
+    } else {
+      // Modo Amigo Local
+      if (activeTurn === 'player') {
+        setActiveTurn('opponent');
+        triggerNotification("Você encerrou sua jogada! Vez do Amigo montar a estratégia final.");
+      } else {
+        resolveMatchResult();
+      }
+    }
+  };
+
+  // Lógica de Inteligência Artificial do Jogo
+  const runCpuLogicWithStartingDeck = (currentCpuHand: HandItem[], curPlayerHand: HandItem[], curCpuDeck: Card[]) => {
+    let cpuTotal = calculateTotal(currentCpuHand);
+    const pTotal = calculateTotal(curPlayerHand);
+    
+    // CPU sabe se o jogador estourou
+    if (pTotal > 21) {
+      resolveMatchResult(currentCpuHand);
+      return;
+    }
+
+    // Regras de segurança baseadas em cartas de futebol
+    if (cpuTotal < 17 && cpuTotal <= pTotal) {
+      const nextDeck = [...curCpuDeck];
+      const drawn = nextDeck.shift();
+      if (!drawn) {
+        resolveMatchResult(currentCpuHand);
+        return;
+      }
+
+      setOpponentDeck(nextDeck);
+      playSoundCard();
+
+      let val = drawn.blackjackValue;
+      if (drawn.isGold) {
+        val = (cpuTotal + 11 <= 21) ? 11 : 1;
+      }
+
+      const updatedCpuHand = [
+        ...currentCpuHand,
+        { id: getUniqueId(), card: drawn, assignedValue: val }
+      ];
+
+      setOpponentHand(updatedCpuHand);
+      cpuTotal = calculateTotal(updatedCpuHand);
+
+      if (cpuTotal > 21) {
+        playSoundBust();
+        triggerNotification(`CPU tentou o escanteio e estourou com ${cpuTotal} pontos!`);
+        setTimeout(() => {
+          resolveMatchResult(updatedCpuHand);
+        }, 1200);
+      } else {
+        triggerNotification(`CPU puxa o jogador ${drawn.name} e soma ${cpuTotal} pontos.`);
+        setTimeout(() => {
+          runCpuLogicWithStartingDeck(updatedCpuHand, curPlayerHand, nextDeck);
+        }, 1500);
+      }
+    } else {
+      triggerNotification("CPU decide manter posição e ditar o ritmo!");
+      setTimeout(() => {
+        resolveMatchResult(currentCpuHand);
+      }, 1000);
+    }
+  };
+
+  // Apurar vencedores e incrementar placar geral
+  const resolveMatchResult = (finalCpuHandOverride?: HandItem[]) => {
+    setIsRevealed(true);
+    playRefereeWhistle(); // Apito final do Árbitro na comemoração!
+
+    const pTotal = calculateTotal(playerHand);
+    const oTotal = calculateTotal(finalCpuHandOverride || opponentHand);
+
+    let notice = '';
+    if (pTotal > 21 && oTotal > 21) {
+      notice = `Ambos os técnicos estouraram o esquema (Você: ${pTotal}, Rival: ${oTotal}). Empate tático total! 🤝`;
+    } else if (pTotal > 21) {
+      notice = `Fim de Jogo! Você extrapolou os limites de tática (${pTotal}). Vitória do Adversário de ${oTotal} pontos! ❌`;
+      setScoreAway(prev => prev + 1);
+    } else if (oTotal > 21) {
+      notice = `Gol da vitória! Adversário estourou com ${oTotal} pontos contra seus sólidos ${pTotal} pontos! 🎉🏆`;
+      setScoreHome(prev => prev + 1);
+      playSoundSuccess();
+    } else if (pTotal > oTotal) {
+      notice = `Vitória Gigante! Seu ataque de ${pTotal} superou os ${oTotal} pontos do rival! 🇸🇪⚽`;
+      setScoreHome(prev => prev + 1);
+      playSoundSuccess();
+    } else if (oTotal > pTotal) {
+      notice = `Derrota! O adversário montou um esquema com ${oTotal} pontos e bateu seus ${pTotal}. 💔`;
+      setScoreAway(prev => prev + 1);
+    } else {
+      notice = `Disputa acirrada nos pênaltis! Um empate perfeito em ${pTotal} pontos!  ⚽`;
+    }
+
+    triggerNotification(notice);
+  };
+
+  const handleNextRoundGame = () => {
+    startHand(startingPlayer === 'player' ? 'opponent' : 'player');
+  };
+
+  const handleResetCompleteScore = () => {
+    setScoreHome(0);
+    setScoreAway(0);
+    startCoinFlipPhase(mode);
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-between selection:bg-emerald-500 selection:text-slate-950 font-sans tracking-tight antialiased">
+      
+      {/* HEADER DE CABEÇALHO */}
+      <header className="border-b border-slate-900 bg-slate-950/70 backdrop-blur-md px-4 py-3 sticky top-0 z-50">
+        <div className="max-w-5xl mx-auto flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-xl sm:text-2xl">🏆</span>
+            <div>
+              <h1 className="text-xs sm:text-sm font-black tracking-widest text-emerald-400 font-mono uppercase">
+                COPA SUPREMA 2026
+              </h1>
+              <p className="text-[8px] sm:text-[9px] font-medium text-slate-500 font-mono tracking-wider">
+                SUPER TRUNFO BLACKJACK
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowHowToPlay(true)}
+              className="text-[9px] tracking-widest font-mono bg-slate-900 hover:bg-slate-800 text-slate-400 font-black px-3 py-1.5 rounded-md border border-slate-800 cursor-pointer uppercase transition-all"
+            >
+              COMO JOGAR 📖
+            </button>
+            {screen !== 'HOME' && (
+              <button
+                onClick={() => setScreen('HOME')}
+                className="text-[9px] tracking-widest font-mono bg-red-950/30 hover:bg-red-950/55 text-red-400 font-black px-3 py-1.5 rounded-md border border-red-900/30 cursor-pointer uppercase transition-all"
+              >
+                Sair ❌
+              </button>
+            )}
+          </div>
+        </div>
+      </header>
+
+      {/* PAINEL FLUTUANTE DE INTRUÇÃO / REGRAS */}
+      {showHowToPlay && (
+        <div className="fixed inset-0 bg-slate-950/92 backdrop-blur-md z-90 flex items-center justify-center p-4">
+          <div className="w-full max-w-lg bg-slate-900 rounded-2xl border border-slate-800 p-6 shadow-2xl relative">
+            <h2 className="text-sm font-black tracking-widest text-emerald-400 font-mono uppercase mb-4 text-center">
+              COMO DISPUTAR O JOGO ⚽
+            </h2>
+            <div className="space-y-4 text-xs font-mono leading-relaxed text-slate-300">
+              <p>
+                <strong className="text-white">1. Moeda Inicial:</strong> Você decide de quem é a bola para começar a partida de futebol!
+              </p>
+              <p>
+                <strong className="text-white">2. Fase de Draft (MÃO INICIAL):</strong> Diferente do Blackjack convencional, o jogo já não inicia montado. Cada técnico, em turnos alternados, escolhe de forma manual um jogador no seu baralho para somar ao escalação, dando mais peso tático e poder de escolha!
+              </p>
+              <p>
+                <strong className="text-white">3. Pede ou Para:</strong> Seu objetivo é somar pontos de futebol o mais próximo possível de <span className="text-emerald-400 font-bold">21 gols/pontos</span> sem nunca estourar a tática.
+              </p>
+              <p>
+                <strong className="text-white">4. Cartas Lendárias (Ouro):</strong> Cartas como Pelé, Messi, Ronaldo e Cristiano Ronaldo são coringas ouro! Você tem a liberdade de selecionar se o valor dela vale 1 ou 11 pontos na sua zaga.
+              </p>
+            </div>
+            
+            <button
+              onClick={() => setShowHowToPlay(false)}
+              className="mt-6 w-full py-3 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black rounded-xl text-xs uppercase tracking-widest cursor-pointer transition-all"
+            >
+              FECHAR E ENTRAR NO GRAMADO
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ÁREA DE CONTEÚDO PRINCIPAL (TELAS) */}
+      <main className="flex-grow flex flex-col justify-center items-center p-3">
+        
+        {/* TELA INICIAL (LOBBY DO JOGO) */}
+        {screen === 'HOME' && (
+          <div className="w-full max-w-sm text-center">
+            
+            <div className="relative mb-6 mx-auto w-24 h-24 rounded-full border-4 border-emerald-500/20 flex items-center justify-center bg-slate-900/50 shadow-2xl">
+              <span className="text-5xl">⚽</span>
+              <div className="absolute inset-0 rounded-full border border-dashed border-emerald-500/30 animate-spin" />
+            </div>
+
+            <h2 className="text-base sm:text-lg font-black tracking-widest text-slate-100 font-mono uppercase">
+              SUPER TRUNFO BLACKJACK
+            </h2>
+            <p className="text-[10px] text-slate-500 font-mono tracking-widest mt-1 mb-8">
+              World Cup 2026 Édition Limitée
+            </p>
+
+            <div className="flex flex-col gap-3">
+              <button
+                onClick={() => startCoinFlipPhase('CPU')}
+                className="w-full bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-400 hover:to-green-500 text-slate-950 font-black py-4.5 rounded-2xl text-xs tracking-wider shadow-lg active:scale-95 transition-all cursor-pointer border-b-4 border-green-800 uppercase"
+              >
+                ⚔️ Modo Único (Contra CPU)
+              </button>
+
+              <button
+                onClick={() => {
+                  setIsLocalMp(true);
+                  startCoinFlipPhase('MP');
+                }}
+                className="w-full bg-gradient-to-r from-slate-900 to-slate-850 hover:bg-slate-800 border border-slate-800/80 text-emerald-400 font-black py-4.5 rounded-2xl text-xs tracking-wider shadow-lg active:scale-95 transition-all cursor-pointer uppercase"
+              >
+                👥 Contra Amigo (Local Pass & Play)
+              </button>
+            </div>
+
+            <p className="mt-8 text-[9px] font-mono text-slate-600">
+              Projetado com suporte a escalação dinâmica alternada de estrelas.
+            </p>
+          </div>
+        )}
+
+        {/* TELA DO SORTEIO DA MOEDA (COIN FLIP) */}
+        {screen === 'COIN_FLIP' && (
+          <div className="w-full max-w-sm text-center bg-slate-900/50 p-6 rounded-3xl border border-slate-900 shadow-2xl">
+            <span className="text-xs font-mono text-emerald-400 font-bold uppercase tracking-widest block mb-4">
+              PONTAPÉ INICIAL
+            </h2>
+            
+            <div className="flex justify-center my-6">
+              <button
+                onClick={handleCoinSelection}
+                disabled={flipping}
+                className={`w-20 h-20 rounded-full bg-gradient-to-b from-yellow-400 to-amber-600 flex items-center justify-center border-4 border-slate-950 shadow-lg shadow-black cursor-pointer transform hover:scale-105 active:scale-90 transition-all ${
+                  flipping ? 'animate-[spin_0.3s_linear_infinite]' : ''
+                }`}
+              >
+                <span className="text-slate-950 font-black text-xl">⚽</span>
+              </button>
+            </div>
+
+            <p className="text-xs font-mono text-slate-300 leading-relaxed max-w-[280px] mx-auto">
+              {flipping ? "A bola está girando no ar!" : notification}
+            </p>
+
+            {coinWinner && (
+              <div className="mt-6 text-emerald-400 text-xs font-mono font-bold animate-bounce">
+                🎉 {coinWinner === 'player' ? 'VOCÊ COMEÇA ESCALANDO!' : 'CPU ADVERSÁRIA INICIA A SELEÇÃO!'}
+              </div>
+            )}
+            
+            {!flipping && !coinWinner && (
+              <button
+                onClick={handleCoinSelection}
+                className="mt-6 w-full text-[10px] tracking-widest font-mono font-black py-3 px-4 bg-slate-850 text-yellow-400 border border-slate-800 rounded-xl hover:bg-slate-800 uppercase transition-all cursor-pointer"
+              >
+                LANÇAR BOLA AO AR! 🪙
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* TELA DE JOGO ATIVO (MATCH SECTION) */}
+        {screen === 'GAME' && (
+          <div className="w-full max-w-5xl flex flex-col gap-6">
+            
+            {/* PLACAR GERAL DA SÉRIE */}
+            <div className="bg-slate-900/40 rounded-3xl border border-slate-900/80 p-4 flex items-center justify-between shadow-lg">
+              <div className="text-center flex-1">
+                <span className="text-[7.5px] font-mono text-slate-500 uppercase tracking-widest">TÉCNICO</span>
+                <p className="text-xs font-black truncate max-w-[120px] mx-auto text-emerald-400">VOCÊ</p>
+                <div className="text-2xl font-mono font-black">{scoreHome}</div>
+              </div>
+              
+              <div className="flex flex-col items-center px-4">
+                <span className="text-[10px] font-bold text-slate-600 uppercase font-mono">VS</span>
+                <span className="text-[9px] bg-slate-950/80 px-2.5 py-1 rounded-full text-slate-400 border border-slate-850/60 font-mono">
+                  {mode === 'CPU' ? 'INTELIGÊNCIA ARTIFICIAL' : 'AMIGO LOCAL'}
+                </span>
+              </div>
+
+              <div className="text-center flex-1">
+                <span className="text-[7.5px] font-mono text-slate-500 uppercase tracking-widest">VISITANTE</span>
+                <p className="text-xs font-black truncate max-w-[120px] mx-auto text-yellow-400">
+                  {mode === 'CPU' ? 'ADVERSÁRIO' : 'SÃO PAULO'}
+                </p>
+                <div className="text-2xl font-mono font-black">{scoreAway}</div>
+              </div>
+            </div>
+
+            {/* NOTIFICADOR DE TEXTO / QUADRA DE COMUNICADO */}
+            <div className="bg-emerald-950/20 border border-emerald-500/20 px-4 py-3.5 rounded-xl text-center">
+              <p className="text-[11px] font-mono font-bold leading-relaxed text-emerald-300">
+                📣 {notification}
+              </p>
+            </div>
+
+            {/* MODAL DE ATRIBUIÇÃO DE CORTES GOLD (OPÇÕES LENDÁRIAS) */}
+            {goldCardToAssign && (
+              <div className="p-4 bg-slate-900 border-2 border-yellow-500 rounded-2xl flex flex-col items-center gap-2 max-w-md mx-auto z-40 shadow-2xl">
+                <span className="text-xl">🌟</span>
+                <h3 className="text-xs font-black font-mono text-yellow-400 uppercase tracking-wider text-center">
+                  CARTA GOLD DETECTADA: {goldCardToAssign.card.name}
+                </h3>
+                <p className="text-[10px] font-mono text-slate-400 text-center max-w-[280px]">
+                  Lendas do futebol mudam o destino do placar. Escolha se esta lenda soma 1 ponto ou 11 pontos no seu esquema ativo.
+                </p>
+                <div className="flex gap-4 w-full mt-2">
+                  <button
+                    onClick={() => handleAssignGoldValue(1)}
+                    className="flex-1 py-3 bg-slate-950 hover:bg-slate-800 text-yellow-400 font-bold rounded-xl border border-yellow-500/30 text-xs cursor-pointer uppercase transition-all"
+                  >
+                    Atribuir 1 Pontos
+                  </button>
+                  <button
+                    onClick={() => handleAssignGoldValue(11)}
+                    className="flex-1 py-3 bg-yellow-400 hover:bg-yellow-350 text-slate-950 font-black rounded-xl text-xs cursor-pointer uppercase transition-all"
+                  >
+                    Atribuir 11 Pontos
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* ZAGA DO ADVERSÁRIO (CARTAS DO OPONENTE COBERTAS OU REVELADAS) */}
+            <div className="bg-slate-900/10 p-4 rounded-3xl border border-slate-900/60 flex flex-col gap-3 relative overflow-hidden">
+              <span className="absolute top-2 right-4 text-[7px] font-mono text-slate-600 uppercase tracking-widest font-black">SETOR RIVAL</span>
+              
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-[10px] font-black font-mono text-slate-400 uppercase tracking-widest">
+                    MÃO DO ADVERSÁRIO
+                  </h3>
+                  <div className="text-[9px] font-mono text-slate-500 mt-0.5">
+                    Total Tático: {isRevealed ? `${calculateTotal(opponentHand)} pontos` : '???'}
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-1">
+                  <div className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+                  <span className="text-[8px] font-mono text-slate-500 uppercase tracking-wider">DEFESA</span>
+                </div>
+              </div>
+
+              {/* Renders hand of opponent */}
+              {opponentHand.length === 0 ? (
+                <div className="py-8 text-center border-2 border-dashed border-slate-900 rounded-2xl">
+                  <span className="text-[9px] font-mono text-slate-600 uppercase tracking-widest">
+                    Aguardando escolhas alternadas...
+                  </span>
+                </div>
+              ) : (
+                <div className="flex items-center justify-center gap-3 overflow-x-auto py-2">
+                  {opponentHand.map((handItem, idx) => (
+                    <SoccerCard 
+                      key={handItem.id}
+                      card={handItem.card}
+                      showFront={isRevealed} 
+                      assignedValue={handItem.assignedValue}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* SEU TIME (ESTÁDIO DE ESCALAÇÃO REAL DOC JOGADOR ATIVO) */}
+            <div className="bg-slate-900/20 p-4 rounded-3xl border border-slate-900 flex flex-col gap-3 relative">
+              <span className="absolute top-2 right-4 text-[7px] font-mono text-emerald-500 uppercase tracking-widest font-black">SEU CAMPO</span>
+              
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-[10px] font-black font-mono text-white uppercase tracking-widest">
+                    SUA SELEÇÃO ATIVA
+                  </h3>
+                  <div className="text-[9px] font-mono text-emerald-400 font-bold mt-0.5">
+                    Soma de Gols Táticos: {calculateTotal(playerHand)} / 21 Lances
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-1">
+                  <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  <span className="text-[8px] font-mono text-emerald-400 uppercase tracking-wider">ATAQUE</span>
+                </div>
+              </div>
+
+              {/* Renders hand of player */}
+              {playerHand.length === 0 ? (
+                <div className="py-8 text-center border-2 border-dashed border-slate-900 rounded-2xl">
+                  <span className="text-[9px] font-mono text-slate-600 uppercase tracking-widest">
+                    Sua zona tática espera o Draft Inicial...
+                  </span>
+                </div>
+              ) : (
+                <div className="flex items-center justify-center gap-3 overflow-x-auto py-2">
+                  {playerHand.map((handItem, idx) => (
+                    <SoccerCard 
+                      key={handItem.id}
+                      card={handItem.card}
+                      showFront={true}
+                      assignedValue={handItem.assignedValue}
+                      onAssignValue={handItem.card.isGold ? (val) => handleAssignGoldValue(val) : undefined}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* PAINEL DE AÇÃO E BOTÕES DE CONTROLE */}
+            <div className="mt-2 bg-slate-950 p-4 rounded-3xl border border-slate-900">
+              
+              {/* Opção se o resultado do jogo já estiver apurado e exposto */}
+              {isRevealed && (
+                <div className="flex flex-col sm:flex-row gap-3 w-full">
+                  <button
+                    onClick={handleNextRoundGame}
+                    className="flex-1 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black py-4.5 rounded-2xl text-xs sm:text-sm tracking-wider uppercase shadow-lg shadow-emerald-500/10 cursor-pointer active:scale-95 transition-all text-center"
+                  >
+                    Próxima Partida (Mudar Lado) ⚽
+                  </button>
+                  <button
+                    onClick={handleResetCompleteScore}
+                    className="flex-1 bg-slate-900 hover:bg-slate-850 text-slate-400 font-black py-4.5 rounded-2xl text-xs sm:text-sm tracking-wider uppercase border border-slate-800 cursor-pointer active:scale-95 transition-all text-center"
+                  >
+                    Reiniciar Torneio 🔄
+                  </button>
+                </div>
+              )}
+
+              {/* Botões ativos durante a rodada */}
+              {mpPhase === 'YOUR_TURN' && !isRevealed && (
+                <div className="flex flex-col gap-3">
+                  
+                  {/* BOTOES DA FASE DE DRAFT / SELEÇÃO INICIAL INICIAL */}
+                  {draftState && draftState !== 'PLAY_PHASE' && (
+                    <div className="w-full text-center">
+                      {activeTurn === 'player' ? (
+                        <button
+                          onClick={() => handleDraftDraw('player')}
+                          className="w-full bg-gradient-to-r from-yellow-400 via-green-500 to-emerald-600 hover:from-yellow-350 hover:to-emerald-500 text-slate-950 font-black py-4 px-6 rounded-2xl text-xs sm:text-sm tracking-widest border-b-4 border-emerald-850 shadow-lg shadow-emerald-500/10 active:scale-95 transition-all text-center uppercase flex items-center justify-center gap-2 cursor-pointer"
+                        >
+                          <span>🃏</span>
+                          {draftState === 'P1_C1' || draftState === 'P2_C1' 
+                            ? 'ESCOLHER REFORÇO 1 da escalação' 
+                            : 'ESCOLHER REFORÇO 2 da escalação'}
+                        </button>
+                      ) : (
+                        <div className="w-full text-center py-4 bg-slate-900/60 rounded-xl border border-slate-800">
+                          <span className="text-xs font-mono text-amber-500 animate-pulse uppercase tracking-widest block font-bold">
+                            {isLocalMp 
+                              ? '🛡️ VEZ DO AMIGO: Escolha o seu craque da escalação!' 
+                              : mode === 'CPU' 
+                                ? '🛡️ CPU decidindo tática de escala...' 
+                                : 'Aguardando lance adversário...'}
+                          </span>
+                          
+                          {isLocalMp && (
+                            <button
+                              onClick={() => handleDraftDraw('opponent')}
+                              className="mt-3 mx-auto flex items-center justify-center gap-1.5 bg-yellow-400 hover:bg-yellow-350 text-slate-950 font-black px-4 py-2.5 rounded-xl text-xs uppercase cursor-pointer transition-all border-b-2 border-yellow-700"
+                            >
+                              <span>🃏</span> ESCOLHER REFORÇO (Amigo)
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* BOTOES DA FASE DE JOGABILIDADE ATALHO BLACKJACK */}
+                  {draftState === 'PLAY_PHASE' && (
+                    <div className="flex items-center gap-3 w-full">
+                      {activeTurn === 'player' ? (
+                        <>
+                          <button
+                            onClick={handleHitCard}
+                            className="flex-1 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-400 hover:to-emerald-500 text-slate-950 font-black py-4 rounded-xl text-xs sm:text-sm tracking-wider shadow-lg active:scale-95 cursor-pointer border-b-4 border-emerald-850 uppercase flex items-center justify-center gap-1.5"
+                          >
+                            Pedir Carta 🃏 (HIT)
+                          </button>
+
+                          <button
+                            onClick={handleStandAction}
+                            className="flex-1 bg-gradient-to-r from-amber-500 to-red-600 hover:from-amber-400 hover:to-red-500 text-white font-black py-4 rounded-xl text-xs sm:text-sm tracking-wider shadow-lg active:scale-95 cursor-pointer border-b-4 border-red-800 uppercase flex items-center justify-center gap-1.5"
+                          >
+                            Parar Avanço ✋ (STAND)
+                          </button>
+                        </>
+                      ) : (
+                        /* Controles táticos do Amigo Local */
+                        isLocalMp && activeTurn === 'opponent' ? (
+                          <>
+                            <button
+                              onClick={handleLocalOpponentHit}
+                              className="flex-1 bg-gradient-to-r from-amber-400 to-yellow-500 hover:from-amber-300 hover:to-yellow-400 text-slate-950 font-black py-3.5 rounded-xl text-xs tracking-wider shadow-lg active:scale-95 cursor-pointer uppercase border-b-4 border-amber-700"
+                            >
+                              (RIVAL) Carta 🃏
+                            </button>
+
+                            <button
+                              onClick={handleStandAction}
+                              className="flex-1 bg-slate-900 border border-slate-700 text-slate-300 font-black py-3.5 rounded-xl text-xs tracking-wider shadow-lg active:scale-95 cursor-pointer uppercase"
+                            >
+                              (RIVAL) Parar ✋
+                            </button>
+                          </>
+                        ) : (
+                          /* CPU decidindo tática */
+                          <div className="w-full text-center py-3 bg-slate-900/50 rounded-xl border border-slate-800/80">
+                            <span className="text-xs font-mono text-amber-500 animate-pulse uppercase tracking-widest">
+                              🛡️ O adversário está decidindo a tática...
+                            </span>
+                          </div>
+                        )
+                      )}
+                    </div>
+                  )}
+
+                </div>
+              )}
+
+            </div>
+
+          </div>
+        )}
+
+      </main>
+
+      {/* FOOTER */}
+      <footer className="border-t border-slate-900 py-4 px-4 bg-slate-950 text-center text-slate-600">
+        <p className="text-[8px] sm:text-[9.5px] font-mono uppercase tracking-widest">
+          Copa Suprema © 2026. Todos os direitos reservados.
+        </p>
+      </footer>
+
+    </div>
+  );
+}
+
+export default App;
