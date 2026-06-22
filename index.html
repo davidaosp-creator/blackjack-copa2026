@@ -548,7 +548,27 @@
       }
 
       // ── CARD RENDERER ──────────────────────────────────────
-      // CORREÇÃO: usa this.parentElement.querySelector() no onerror para evitar conflito de IDs duplicados
+      // Mapa de ID → nome real do arquivo no GitHub (extensão .jpg, nomes exatos)
+      const IMG_FILE_MAP = {
+        pele:       'pele',
+        ronaldo:    'ronaldo',
+        messi:      'messi',
+        cr7:        'cr7',
+        maradona:   'maradona',
+        mbappe:     'mbappe',
+        vinijr:     'vini',
+        bellingham: 'bellingham',
+        haaland:    'haaland',
+        rodri:      'rodri',
+        vandijk:    'van_dijk',
+        kane:       'kane',
+        salah:      'salah',
+        modric:     'modric',
+        pedri:      'pedri',
+        rubendias:  'ruben_dias',
+        maignan:    'maignan'
+      };
+
       function createCardHtml(card, assignedValue, showFront) {
         if (!showFront) {
           return `
@@ -570,7 +590,8 @@
 
         const kit = getKitColors(card.country);
         const displayVal = assignedValue !== undefined ? assignedValue : card.blackjackValue;
-        const imgUrl = `https://raw.githubusercontent.com/davidaosp-creator/copa2026-super-trunfo/main/app/src/main/res/drawable/img_card_${card.id}.png`;
+        const imgFileName = IMG_FILE_MAP[card.id] || card.id;
+        const imgUrl = `https://raw.githubusercontent.com/davidaosp-creator/copa2026-super-trunfo/main/app/src/main/res/drawable/img_card_${imgFileName}.jpg`;
         const shirtNumber = card.position==='ATA'?'9':card.position==='MEI'?'10':card.position==='DEF'?'4':'1';
 
         let borderCls = card.isGold
