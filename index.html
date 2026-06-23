@@ -49,38 +49,41 @@
         background-size: cover, 40px 40px, 40px 40px;
       }
 
-      /* ── CORREÇÃO MOBILE: cartas menores por padrão ── */
+      /* ── LAYOUT MOBILE: tudo calculado em vw para caber 100% sem zoom ── */
+
+      /* Cartas: ~28vw cada, máx 4 na tela lado a lado */
       .player-card {
-        width: 108px;
-        height: 182px;
+        width: clamp(80px, 27vw, 130px);
+        height: clamp(136px, 46vw, 220px);
         flex-shrink: 0;
       }
-      @media (min-width: 400px) {
-        .player-card { width: 122px; height: 205px; }
-      }
-      @media (min-width: 640px) {
-        .player-card { width: 145px; height: 240px; }
+
+      /* Imagem dentro da carta proporcional */
+      .card-img-wrap {
+        height: clamp(60px, 20vw, 110px);
       }
 
-      /* Imagem dentro da carta */
-      .card-img-wrap { height: 95px; }
-      @media (min-width: 400px) { .card-img-wrap { height: 108px; } }
-      @media (min-width: 640px) { .card-img-wrap { height: 120px; } }
-
-      /* Grid de cartas sem overflow */
+      /* Grid de cartas: wrap, centralizado, sem overflow */
       .hand-grid {
         display: flex;
         flex-wrap: wrap;
-        align-items: center;
+        align-items: flex-start;
         justify-content: center;
-        gap: 6px;
+        gap: clamp(4px, 1.5vw, 10px);
         width: 100%;
-        padding: 0 4px;
+        padding: 0 2px;
+        box-sizing: border-box;
       }
-      @media (min-width: 640px) { .hand-grid { gap: 10px; } }
+
+      /* Tela do jogo compacta no mobile */
+      @media (max-width: 480px) {
+        #screen-game { gap: 0; }
+        #screen-game > * { margin-bottom: 6px !important; }
+        .hand-grid { min-height: 100px !important; }
+      }
     </style>
   </head>
-  <body class="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-between relative overflow-hidden font-sans select-none pb-8 sm:pb-12">
+  <body class="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-between relative overflow-x-hidden font-sans select-none pb-4 sm:pb-8">
     <div class="absolute inset-0 pitch-bg opacity-30 pointer-events-none"></div>
     <div class="absolute inset-0 bg-gradient-to-b from-transparent via-slate-950/40 to-slate-950 pointer-events-none"></div>
 
@@ -138,7 +141,7 @@
             <h4 class="font-bold text-emerald-400 flex items-center gap-1.5 mb-1.5">🛡️ Valor Tático dos Craques:</h4>
             <ul class="space-y-1 list-disc pl-4 text-xs">
               <li><strong>Cartas Comuns:</strong> Valem a pontuação do jogador.</li>
-              <li><strong>Cartas Lendárias Douradas (Pelé, Ronaldo, Messi, CR7, Maradona):</strong> São curingas e valem de <strong class="text-yellow-400">1 a 11 pontos</strong>! Você escolhe o valor tático ao comprá-las.</li>
+              <li><strong>Cartas Lendárias Douradas (Pelé e Ronaldo Fenômeno):</strong> São curingas e valem de <strong class="text-yellow-400">1 a 11 pontos</strong>! Você escolhe o valor tático ao comprá-las.</li>
             </ul>
           </div>
           <div class="bg-slate-950 p-3 rounded-xl border border-yellow-500/10">
@@ -175,7 +178,7 @@
     </div>
 
     <!-- Main Screens -->
-    <main class="w-full max-w-5xl mx-auto px-3 py-2 flex-grow flex items-center justify-center z-20 relative">
+    <main class="w-full max-w-5xl mx-auto px-2 py-1 flex-grow flex items-start justify-center z-20 relative overflow-x-hidden">
 
       <!-- HOME -->
       <div id="screen-home" class="flex flex-col items-center text-center max-w-lg mx-auto">
@@ -205,14 +208,11 @@
 
       <!-- MP MENU -->
       <div id="screen-mp-menu" class="w-full max-w-md mx-auto bg-slate-900/90 border border-slate-800 rounded-3xl p-5 sm:p-8 shadow-2xl relative hidden">
-        <h3 class="text-xl font-black text-yellow-400 text-center uppercase tracking-tight">Modo Multiplayer 👥</h3>
-        <p class="text-xs text-slate-400 text-center mt-1">Escolha jogar localmente passando o aparelho ou envie desafios via WhatsApp!</p>
-        <div class="mt-5 space-y-3">
-          <button onclick="startGameMode('MP_LOCAL')" class="w-full bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-400 text-slate-950 font-extrabold py-3.5 px-6 rounded-xl text-xs tracking-widest cursor-pointer uppercase flex items-center justify-center gap-2 border-0">
-            1) No Mesmo Aparelho (Local)
-          </button>
-          <button onclick="startGameMode('MP_WHATSAPP')" class="w-full bg-slate-950 border border-emerald-500/40 text-emerald-400 hover:text-emerald-300 font-extrabold py-3.5 px-6 rounded-xl text-xs tracking-widest cursor-pointer uppercase flex items-center justify-center gap-2">
-            2) Desafiar Via WhatsApp
+        <h3 class="text-xl font-black text-yellow-400 text-center uppercase tracking-tight">Desafiar via WhatsApp 📱</h3>
+        <p class="text-xs text-slate-400 text-center mt-1">Faça sua jogada e envie o código para seu amigo continuar!</p>
+        <div class="mt-5">
+          <button onclick="startGameMode('MP_WHATSAPP')" class="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-400 text-slate-950 font-extrabold py-4 px-6 rounded-xl text-sm tracking-widest cursor-pointer uppercase flex items-center justify-center gap-2 border-0 shadow-lg">
+            📲 Iniciar Desafio WhatsApp
           </button>
         </div>
         <div class="mt-5 pt-4 border-t border-slate-800">
@@ -280,7 +280,7 @@
       <!-- GAME SCREEN -->
       <div id="screen-game" class="w-full flex flex-col items-center hidden">
         <!-- Scoreboard -->
-        <div class="w-full max-w-md bg-gradient-to-r from-emerald-950/90 via-slate-950/90 to-emerald-950/90 border border-yellow-500/30 rounded-xl p-2.5 shadow-xl mb-3 flex items-center justify-between text-center select-none">
+        <div class="w-full max-w-md bg-gradient-to-r from-emerald-950/90 via-slate-950/90 to-emerald-950/90 border border-yellow-500/30 rounded-xl p-2 shadow-xl mb-2 flex items-center justify-between text-center select-none">
           <div class="flex-1">
             <div class="text-[9px] text-emerald-400 font-bold uppercase tracking-widest">VOCÊ</div>
             <div id="score-player" class="text-2xl font-black text-white">0</div>
@@ -296,14 +296,14 @@
         </div>
 
         <!-- Turn badge -->
-        <div class="mb-3">
+        <div class="mb-2">
           <span id="game-turn-badge" class="bg-emerald-500 text-slate-950 font-extrabold px-3 py-1 rounded-full text-xs uppercase tracking-wider shadow-lg flex items-center gap-1.5 animate-pulse">
             ⚽ Seu lance!
           </span>
         </div>
 
         <!-- RIVAL BOARD -->
-        <div class="w-full bg-slate-950/70 border border-slate-900 rounded-2xl p-3 mb-3 shadow-inner relative flex flex-col items-center">
+        <div class="w-full bg-slate-950/70 border border-slate-900 rounded-2xl p-2 mb-2 shadow-inner relative flex flex-col items-center">
           <div class="absolute top-2 left-3 text-[10px] font-black tracking-widest text-slate-500 uppercase flex items-center gap-1">
             <span>🛡️</span> <span id="opponent-board-title">Elenco Rival</span>
           </div>
@@ -315,7 +315,7 @@
         </div>
 
         <!-- PLAYER BOARD -->
-        <div class="w-full bg-slate-950/70 border-2 border-emerald-500/15 rounded-2xl p-3 shadow-xl relative flex flex-col items-center">
+        <div class="w-full bg-slate-950/70 border-2 border-emerald-500/15 rounded-2xl p-2 shadow-xl relative flex flex-col items-center">
           <div class="absolute top-2 left-3 text-[10px] font-black tracking-widest text-[#22C55E] uppercase flex items-center gap-1">
             <span>🏃</span> Seu Elenco
           </div>
@@ -327,7 +327,7 @@
         </div>
 
         <!-- CONTROLS -->
-        <div class="mt-4 w-full max-w-md px-2 relative z-30">
+        <div class="mt-2 w-full max-w-md px-1 relative z-30">
           <div id="game-controls-box"></div>
         </div>
       </div>
@@ -377,9 +377,9 @@
       const ALL_PLAYERS = [
         { id: "pele",       name: "Pelé",             country: "Brasil",     countryFlag: "🇧🇷", position: "ATA", blackjackValue: 11, isGold: true,  legendBio: "O Rei do Futebol, 3 Copas do Mundo, o maior de todos os tempos.", rating: 99 },
         { id: "ronaldo",    name: "Ronaldo Fenômeno",  country: "Brasil",     countryFlag: "🇧🇷", position: "ATA", blackjackValue: 11, isGold: true,  legendBio: "Artilheiro implacável do Penta nacional em 2002.", rating: 97 },
-        { id: "messi",      name: "Lionel Messi",      country: "Argentina",  countryFlag: "🇦🇷", position: "ATA", blackjackValue: 11, isGold: true,  legendBio: "Campeão mundial de 2022 e vencedor de 8 Bolas de Ouro.", rating: 98 },
-        { id: "cr7",        name: "Cristiano Ronaldo", country: "Portugal",   countryFlag: "🇵🇹", position: "ATA", blackjackValue: 11, isGold: true,  legendBio: "O maior artilheiro da história das seleções.", rating: 98 },
-        { id: "maradona",   name: "Diego Maradona",    country: "Argentina",  countryFlag: "🇦🇷", position: "MEI", blackjackValue: 11, isGold: true,  legendBio: "Símbolo histórico da conquista de 1986 no México.", rating: 97 },
+        { id: "messi",      name: "Lionel Messi",      country: "Argentina",  countryFlag: "🇦🇷", position: "ATA", blackjackValue: 10, isGold: false, rating: 98 },
+        { id: "cr7",        name: "Cristiano Ronaldo", country: "Portugal",   countryFlag: "🇵🇹", position: "ATA", blackjackValue: 10, isGold: false, rating: 98 },
+        { id: "maradona",   name: "Diego Maradona",    country: "Argentina",  countryFlag: "🇦🇷", position: "MEI", blackjackValue: 9,  isGold: false, rating: 97 },
         { id: "mbappe",     name: "Mbappé",            country: "França",     countryFlag: "🇫🇷", position: "ATA", blackjackValue: 10, isGold: false, rating: 94 },
         { id: "vinijr",     name: "Vini Jr.",          country: "Brasil",     countryFlag: "🇧🇷", position: "ATA", blackjackValue: 9,  isGold: false, rating: 93 },
         { id: "bellingham", name: "Bellingham",        country: "Inglaterra", countryFlag: "🏴󠁧󠁢󠁥󠁮󠁧󠁿", position: "MEI", blackjackValue: 8,  isGold: false, rating: 91 },
@@ -797,7 +797,9 @@
 
       function getWhatsappPayloadLink() {
         const p={mode:'MP',score:[state.playerScore,state.opponentScore],playerHand:state.playerHand,opponentHand:state.opponentHand,playerDeck:state.playerDeck,opponentDeck:state.opponentDeck,coinWinner:state.coinWinner,isRevealed:false};
-        const msg=`Vamos jogar o Black Jack da Copa 2026! ⚽🏆\n\nFiz minha jogada. Sua vez! Cole o código abaixo no site:\n\nCOPA2026#${btoa(JSON.stringify(p))}`;
+        const siteUrl=window.location.href.split('?')[0];
+        const code=`COPA2026#${btoa(JSON.stringify(p))}`;
+        const msg=`⚽🏆 Black Jack da Copa 2026!\n\nFiz minha jogada. É a sua vez!\n\n👉 Acesse o jogo:\n${siteUrl}\n\nDepois clique em "JOGAR VS AMIGO" e cole o código abaixo:\n\n${code}`;
         return `https://wa.me/?text=${encodeURIComponent(msg)}`;
       }
 
