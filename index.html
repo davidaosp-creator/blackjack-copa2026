@@ -232,10 +232,10 @@
 
         <div class="mt-5 pt-4 border-t border-slate-800">
           <label class="block text-xs font-bold text-yellow-500/90 uppercase tracking-widest mb-2 text-center">Já recebeu um código de sala?</label>
-          <div class="flex gap-2">
-            <input id="input-room-code" type="text" maxlength="4" placeholder="ABCD" class="flex-1 bg-slate-950 border border-slate-700 text-slate-100 placeholder-slate-600 rounded-xl p-3 text-center text-xl font-black font-mono uppercase focus:outline-none focus:ring-2 focus:ring-yellow-400 tracking-widest" oninput="this.value=this.value.toUpperCase()" />
-            <button onclick="entrarSala()" class="bg-yellow-400 hover:bg-yellow-300 text-slate-950 font-black px-5 rounded-xl text-sm uppercase cursor-pointer border-0">
-              ENTRAR
+          <div class="flex flex-col gap-2">
+            <input id="input-room-code" type="text" maxlength="4" placeholder="ABCD" class="w-full bg-slate-950 border border-slate-700 text-slate-100 placeholder-slate-600 rounded-xl p-3 text-center text-2xl font-black font-mono uppercase focus:outline-none focus:ring-2 focus:ring-yellow-400 tracking-widest" oninput="this.value=this.value.toUpperCase()" />
+            <button onclick="entrarSala()" class="w-full bg-yellow-400 hover:bg-yellow-300 text-slate-950 font-black py-3.5 rounded-xl text-sm uppercase cursor-pointer border-0 tracking-widest shadow-lg">
+              ✅ ENTRAR NA SALA
             </button>
           </div>
         </div>
@@ -934,7 +934,7 @@
           </div>`;
         }
         const imgFile=IMG_FILE_MAP[card.id];
-        const imgUrl=imgFile?`https://raw.githubusercontent.com/davidaosp-creator/copa2026-super-trunfo/main/img/${imgFile}.jpg`:null;
+        const imgUrl=imgFile?`https://raw.githubusercontent.com/Nildo-hub/copa2026-blackjack/main/img/${imgFile}.jpg`:null;
         const displayVal=assignedValue!==null&&assignedValue!==undefined?assignedValue:card.blackjackValue;
         const kit=getKitColors(card.country);
         const shirtNumber=card.rating%10||card.rating;
@@ -949,7 +949,7 @@
               <span class="text-[8px] font-bold px-1 py-0.5 rounded ${card.isGold?'bg-slate-950/30 text-slate-950':'bg-slate-950/50 text-slate-400'}">${card.position}</span>
             </div>
             <div class="card-img-wrap w-full flex items-center justify-center relative overflow-hidden rounded-lg my-0.5" style="background:linear-gradient(135deg,${kit.p}22,${kit.s}22)">
-              ${imgUrl?`<img src="${imgUrl}" alt="${card.name}" class="w-full h-full object-cover object-top" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" loading="lazy" />`:''}
+              ${imgUrl?`<img src="${imgUrl}" alt="${card.name}" class="w-full h-full object-cover object-top" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" />`:''}
               <div class="${imgUrl?'hidden':'flex'} w-full h-full items-center justify-center relative" style="display:${imgUrl?'none':'flex'}">
                 <svg viewBox="0 0 100 80" class="w-full h-full opacity-80" xmlns="http://www.w3.org/2000/svg">
                   <path d="M 30 15 L 70 15 L 75 80 L 25 80 Z" fill="${kit.p}" stroke="${kit.s}" stroke-width="3" />
