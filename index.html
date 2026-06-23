@@ -1511,8 +1511,7 @@
 
         setTimeout(()=>{
           if(state.playerScore>=2||state.opponentScore>=2){openGameOverScreen();}
-        else{sounds.playRefereeWhistleLong();}
-          else{showBanner("Próxima rodada!");setTimeout(()=>{
+          else{sounds.playRefereeWhistleLong();showBanner("Próxima rodada!");setTimeout(()=>{
             if(state.mode==='MP_ONLINE'){
               // Resetar Firebase para nova rodada
               if(state.roomCode && window.fbDb) {
