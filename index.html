@@ -151,26 +151,57 @@
     <div id="rules-modal" class="fixed inset-0 bg-black/85 backdrop-blur-md hidden items-center justify-center p-4 z-50">
       <div class="w-full max-w-md bg-slate-900 border-2 border-yellow-500/40 rounded-3xl p-6 relative shadow-2xl">
         <h3 class="text-xl font-black text-yellow-400 flex items-center gap-2 mb-3">🏆 Regras da Copa do Blackjack</h3>
-        <div class="space-y-4 text-xs sm:text-sm text-slate-300 leading-relaxed font-sans max-h-80 overflow-y-auto pr-1">
-          <p>O objetivo é montar um elenco cuja pontuação chegue o mais próximo possível de <strong class="text-yellow-400">21 pontos</strong>, sem estourar!</p>
+        <div class="space-y-3 text-xs sm:text-sm text-slate-300 leading-relaxed font-sans max-h-[70vh] overflow-y-auto pr-1">
+
+          <p>O objetivo é montar um elenco com pontuação o mais próximo possível de <strong class="text-yellow-400">21 pontos</strong>, sem estourar!</p>
+
           <div class="bg-slate-950 p-3 rounded-xl border border-emerald-500/20">
-            <h4 class="font-bold text-emerald-400 flex items-center gap-1.5 mb-1.5">🛡️ Valor Tático dos Craques:</h4>
+            <h4 class="font-bold text-emerald-400 flex items-center gap-1.5 mb-1.5">🃏 O Baralho:</h4>
             <ul class="space-y-1 list-disc pl-4 text-xs">
-              <li><strong>Cartas Comuns:</strong> Valem a pontuação do jogador.</li>
-              <li><strong>Cartas Lendárias Douradas (Pelé e Ronaldo Fenômeno):</strong> São curingas e valem de <strong class="text-yellow-400">1 a 11 pontos</strong>!</li>
+              <li>São <strong class="text-white">40 cartas</strong> no total — com os maiores craques da Copa 2026.</li>
+              <li>Valores de <strong class="text-white">1 a 10</strong>, sendo <strong class="text-white">4 cartas de cada valor</strong>.</li>
+              <li><strong class="text-yellow-400">Não existem cartas lendárias no baralho</strong> — as lendas são troféus a conquistar!</li>
             </ul>
           </div>
-          <div class="bg-slate-950 p-3 rounded-xl border border-yellow-500/10">
-            <h4 class="font-bold text-yellow-400 flex items-center gap-1.5 mb-1.5">🪙 Sorteio de Campo (Cara ou Coroa):</h4>
-            <p class="text-xs">Quem vencer o sorteio inicial começa fazendo a escalação e jogando o primeiro lance!</p>
+
+          <div class="bg-slate-950 p-3 rounded-xl border border-blue-500/20">
+            <h4 class="font-bold text-blue-400 flex items-center gap-1.5 mb-1.5">⚽ Como Jogar:</h4>
+            <ul class="space-y-1 list-disc pl-4 text-xs">
+              <li><strong class="text-white">1. Sorteio:</strong> Cara ou coroa decide quem começa a escalação.</li>
+              <li><strong class="text-white">2. Draft:</strong> Cada jogador escolhe <strong>2 cartas</strong> do baralho para seu elenco inicial — alternando as escolhas.</li>
+              <li><strong class="text-white">3. Jogo:</strong> Quem ganhou o sorteio começa. Puxe mais cartas ou pare.</li>
+              <li><strong class="text-white">4. Revelação:</strong> Quando os dois pararem, os elencos são revelados.</li>
+              <li>Quem chegar mais perto de 21 sem estourar <strong class="text-yellow-400">vence a rodada!</strong></li>
+            </ul>
           </div>
+
+          <div class="bg-slate-950 p-3 rounded-xl border border-rose-500/20">
+            <h4 class="font-bold text-rose-400 flex items-center gap-1.5 mb-1.5">💥 Estourou!</h4>
+            <p class="text-xs">Se a soma do seu elenco passar de 21, você perde a rodada automaticamente. Cuidado na hora de puxar!</p>
+          </div>
+
+          <div class="bg-slate-950 p-3 rounded-xl border border-yellow-500/20">
+            <h4 class="font-bold text-yellow-400 flex items-center gap-1.5 mb-1.5">🏅 Vencendo a Partida:</h4>
+            <p class="text-xs">A partida é em melhor de 3 rodadas. Quem vencer <strong class="text-white">2 rodadas primeiro</strong> levanta a taça!</p>
+          </div>
+
+          <div class="bg-slate-950 p-3 rounded-xl border border-amber-500/30">
+            <h4 class="font-bold text-amber-400 flex items-center gap-1.5 mb-1.5">🏆 Sala de Troféus:</h4>
+            <ul class="space-y-1 list-disc pl-4 text-xs">
+              <li>Ganhe <strong class="text-white">5 vitórias consecutivas</strong> para desbloquear uma <strong class="text-yellow-400">lenda dourada</strong>!</li>
+              <li>São <strong class="text-white">7 lendas</strong> no total: Beckenbauer, Zico, Garrincha, Ronaldinho, Maradona, Ronaldo Fenômeno e <strong class="text-yellow-400">Pelé</strong> (o mais difícil!).</li>
+              <li>Seus troféus ficam salvos e podem ser vistos na <strong class="text-white">Sala de Troféus</strong>.</li>
+            </ul>
+          </div>
+
           <div class="bg-slate-950 p-3 rounded-xl border border-green-500/20">
             <h4 class="font-bold text-green-400 flex items-center gap-1.5 mb-1.5">📱 Multiplayer Online:</h4>
-            <p class="text-xs">Crie uma sala, envie o código de 4 letras para seu amigo via WhatsApp. Quando ele entrar, o cara ou coroa acontece e vocês jogam em tempo real!</p>
+            <p class="text-xs">Crie uma sala e envie o código de <strong class="text-white">4 letras</strong> para seu amigo via WhatsApp. Quando ele entrar, o sorteio acontece e vocês jogam em tempo real — cada um no seu celular!</p>
           </div>
+
         </div>
         <button onclick="toggleHowToPlay(false)" class="mt-5 w-full py-3 bg-gradient-to-r from-green-500 to-emerald-600 font-extrabold text-slate-950 rounded-xl hover:from-green-400 tracking-wide text-xs uppercase cursor-pointer border-0">
-          Entendido, Mandar Ver!
+          Entendido, Mandar Ver! ⚽
         </button>
       </div>
     </div>
