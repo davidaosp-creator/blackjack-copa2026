@@ -36,6 +36,7 @@
       window.fbGet = get;
       window.fbOnValue = onValue;
       window.fbUpdate = update;
+          window.fbGet = get;
       window.fbRemove = remove;
       window.firebaseReady = true;
       console.log("Firebase conectado!");
@@ -219,9 +220,49 @@
           <button onclick="changeScreen('MP_MENU')" class="w-full bg-slate-900/90 text-yellow-400 font-black py-4 px-6 rounded-2xl text-sm tracking-widest border border-yellow-500/40 hover:bg-slate-800 shadow-lg cursor-pointer uppercase flex items-center justify-center gap-2">
             📱 JOGAR VS AMIGO (ONLINE)
           </button>
+          <button onclick="openTrophyRoom()" class="w-full bg-gradient-to-r from-yellow-500 to-amber-600 text-slate-950 font-black py-4 px-6 rounded-2xl text-sm tracking-widest border-b-4 border-amber-800 hover:from-yellow-400 shadow-lg active:translate-y-0.5 cursor-pointer uppercase flex items-center justify-center gap-2">
+            🏆 SALA DE TROFÉUS
+          </button>
         </div>
         <div class="mt-10 flex items-center gap-1.5 text-slate-500 text-[10px] uppercase font-mono tracking-widest bg-slate-900/50 px-3 py-1.5 rounded-full border border-slate-800/80">
           <span>🏟️</span> Estádio AI Studio Nacional
+        </div>
+      </div>
+
+
+      <!-- TROPHY ROOM -->
+      <div id="screen-trophy-room" class="w-full max-w-md mx-auto bg-slate-900/90 border border-yellow-500/30 rounded-3xl p-5 shadow-2xl relative hidden">
+        <div class="text-center mb-5">
+          <div class="text-4xl mb-1">🏆</div>
+          <h2 class="text-yellow-400 font-black text-xl uppercase tracking-widest">Sala de Troféus</h2>
+          <p class="text-slate-400 text-xs mt-1">Ganhe 5 vitórias seguidas para desbloquear cada lenda!</p>
+        </div>
+        <div id="trophy-room-grid" class="grid grid-cols-3 gap-4 mb-6">
+          <!-- preenchido por openTrophyRoom() -->
+        </div>
+        <div class="bg-slate-800/60 rounded-xl p-3 mb-4 text-center">
+          <p class="text-slate-300 text-xs">🔥 <span id="trophy-streak-display">0</span> vitória(s) consecutiva(s) no momento</p>
+        </div>
+        <button onclick="changeScreen('HOME')" class="w-full bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold py-3 rounded-xl text-xs uppercase cursor-pointer border-0">
+          ← Voltar ao Menu
+        </button>
+      </div>
+
+      <!-- MODAL TROFÉU GANHO -->
+      <div id="trophy-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+        <div class="bg-gradient-to-b from-yellow-900/90 to-slate-900 border-2 border-yellow-400 rounded-3xl p-6 max-w-xs w-full text-center shadow-2xl shadow-yellow-400/20">
+          <div class="text-5xl mb-2">🏆</div>
+          <h2 class="text-yellow-400 font-black text-lg uppercase tracking-widest mb-1">TROFÉU DESBLOQUEADO!</h2>
+          <div class="w-32 h-40 mx-auto rounded-xl overflow-hidden border-2 border-yellow-400 mb-3 shadow-lg">
+            <img id="trophy-modal-img" src="" class="w-full h-full object-cover object-top" />
+          </div>
+          <div class="text-2xl mb-1" id="trophy-modal-flag"></div>
+          <h3 class="text-yellow-300 font-black text-base mb-1" id="trophy-modal-name"></h3>
+          <p class="text-slate-300 text-xs mb-4 italic" id="trophy-modal-bio"></p>
+          <p class="text-slate-400 text-xs mb-4">Acesse a Sala de Troféus para ver sua coleção!</p>
+          <button onclick="document.getElementById('trophy-modal').classList.add('hidden')" class="w-full bg-yellow-400 hover:bg-yellow-300 text-slate-950 font-black py-3 rounded-xl text-sm uppercase cursor-pointer border-0">
+            INCRÍVEL! 🌟
+          </button>
         </div>
       </div>
 
@@ -413,45 +454,46 @@
 
     <script>
       const ALL_PLAYERS = [
-        { id: "pele",         name: "Pelé",              country: "Brasil",     countryFlag: "🇧🇷", position: "ATA", blackjackValue: 11, isGold: true,  legendBio: "O Rei do Futebol, 3 Copas do Mundo, o maior de todos os tempos.", rating: 99 },
-        { id: "ronaldo",      name: "Ronaldo Fenômeno",  country: "Brasil",     countryFlag: "🇧🇷", position: "ATA", blackjackValue: 11, isGold: true,  legendBio: "Artilheiro implacável do Penta nacional em 2002.", rating: 97 },
-        { id: "maradona",     name: "Diego Maradona",    country: "Argentina",  countryFlag: "🇦🇷", position: "MEI", blackjackValue: 11, isGold: true,  legendBio: "A Mão de Deus. O gol do século. O maior camisa 10 da história.", rating: 97 },
-        { id: "garrincha",    name: "Garrincha",         country: "Brasil",     countryFlag: "🇧🇷", position: "ATA", blackjackValue: 11, isGold: true,  legendBio: "A Alegria do Povo. Bicampeão mundial invicto pela Seleção.", rating: 96 },
-        { id: "ronaldinho",   name: "Ronaldinho Gaúcho", country: "Brasil",     countryFlag: "🇧🇷", position: "MEI", blackjackValue: 11, isGold: true,  legendBio: "Melhor do mundo em 2004 e 2005. O futebol arte em pessoa.", rating: 95 },
-        { id: "zico",         name: "Zico",              country: "Brasil",     countryFlag: "🇧🇷", position: "MEI", blackjackValue: 11, isGold: true,  legendBio: "O Galinho de Quintino. Um dos maiores da história do futebol.", rating: 94 },
-        { id: "beckenbauer",  name: "Beckenbauer",       country: "Alemanha",   countryFlag: "🇩🇪", position: "DEF", blackjackValue: 11, isGold: true,  legendBio: "O Kaiser. Campeão mundial como jogador e técnico.", rating: 96 },
-        { id: "messi",        name: "Lionel Messi",      country: "Argentina",  countryFlag: "🇦🇷", position: "ATA", blackjackValue: 10, isGold: false, rating: 98 },
-        { id: "cr7",          name: "Cristiano Ronaldo", country: "Portugal",   countryFlag: "🇵🇹", position: "ATA", blackjackValue: 10, isGold: false, rating: 98 },
-        { id: "mbappe",       name: "Mbappé",            country: "França",     countryFlag: "🇫🇷", position: "ATA", blackjackValue: 10, isGold: false, rating: 94 },
-        { id: "haaland",      name: "Haaland",           country: "Noruega",    countryFlag: "🇳🇴", position: "ATA", blackjackValue: 10, isGold: false, rating: 92 },
-        { id: "vinijr",       name: "Vini Jr.",          country: "Brasil",     countryFlag: "🇧🇷", position: "ATA", blackjackValue: 9,  isGold: false, rating: 93 },
-        { id: "bellingham",   name: "Bellingham",        country: "Inglaterra", countryFlag: "🏴󠁧󠁢󠁥󠁮󠁧󠁿", position: "MEI", blackjackValue: 9,  isGold: false, rating: 91 },
-        { id: "salah",        name: "Salah",             country: "Egito",      countryFlag: "🇪🇬", position: "ATA", blackjackValue: 9,  isGold: false, rating: 90 },
-        { id: "kane",         name: "Harry Kane",        country: "Inglaterra", countryFlag: "🏴󠁧󠁢󠁥󠁮󠁧󠁿", position: "ATA", blackjackValue: 8,  isGold: false, rating: 89 },
-        { id: "debruyne",     name: "De Bruyne",         country: "Bélgica",    countryFlag: "🇧🇪", position: "MEI", blackjackValue: 9,  isGold: false, rating: 91 },
-        { id: "rodri",        name: "Rodri",             country: "Espanha",    countryFlag: "🇪🇸", position: "MEI", blackjackValue: 8,  isGold: false, rating: 91 },
-        { id: "vandijk",      name: "Van Dijk",          country: "Holanda",    countryFlag: "🇳🇱", position: "DEF", blackjackValue: 7,  isGold: false, rating: 90 },
-        { id: "modric",       name: "Modrić",            country: "Croácia",    countryFlag: "🇭🇷", position: "MEI", blackjackValue: 7,  isGold: false, rating: 88 },
-        { id: "valverde",     name: "Valverde",          country: "Uruguai",    countryFlag: "🇺🇾", position: "MEI", blackjackValue: 8,  isGold: false, rating: 89 },
-        { id: "bernardo",     name: "Bernardo Silva",    country: "Portugal",   countryFlag: "🇵🇹", position: "MEI", blackjackValue: 7,  isGold: false, rating: 88 },
-        { id: "brunof",       name: "Bruno Fernandes",   country: "Portugal",   countryFlag: "🇵🇹", position: "MEI", blackjackValue: 7,  isGold: false, rating: 87 },
-        { id: "lautaro",      name: "Lautaro Martínez",  country: "Argentina",  countryFlag: "🇦🇷", position: "ATA", blackjackValue: 8,  isGold: false, rating: 88 },
-        { id: "leao",         name: "Rafael Leão",       country: "Portugal",   countryFlag: "🇵🇹", position: "ATA", blackjackValue: 7,  isGold: false, rating: 87 },
-        { id: "musiala",      name: "Musiala",           country: "Alemanha",   countryFlag: "🇩🇪", position: "MEI", blackjackValue: 7,  isGold: false, rating: 87 },
-        { id: "foden",        name: "Phil Foden",        country: "Inglaterra", countryFlag: "🏴󠁧󠁢󠁥󠁮󠁧󠁿", position: "MEI", blackjackValue: 7,  isGold: false, rating: 87 },
-        { id: "saka",         name: "Bukayo Saka",       country: "Inglaterra", countryFlag: "🏴󠁧󠁢󠁥󠁮󠁧󠁿", position: "ATA", blackjackValue: 6,  isGold: false, rating: 86 },
-        { id: "odegaard",     name: "Ødegaard",          country: "Noruega",    countryFlag: "🇳🇴", position: "MEI", blackjackValue: 7,  isGold: false, rating: 87 },
-        { id: "pedri",        name: "Pedri",             country: "Espanha",    countryFlag: "🇪🇸", position: "MEI", blackjackValue: 6,  isGold: false, rating: 86 },
-        { id: "rice",         name: "Declan Rice",       country: "Inglaterra", countryFlag: "🏴󠁧󠁢󠁥󠁮󠁧󠁿", position: "MEI", blackjackValue: 6,  isGold: false, rating: 86 },
-        { id: "lewandowski",  name: "Lewandowski",       country: "Polônia",    countryFlag: "🇵🇱", position: "ATA", blackjackValue: 8,  isGold: false, rating: 88 },
-        { id: "griezmann",    name: "Griezmann",         country: "França",     countryFlag: "🇫🇷", position: "ATA", blackjackValue: 7,  isGold: false, rating: 87 },
-        { id: "son",          name: "Son Heung-min",     country: "Coreia",     countryFlag: "🇰🇷", position: "ATA", blackjackValue: 7,  isGold: false, rating: 87 },
-        { id: "hakimi",       name: "Hakimi",            country: "Marrocos",   countryFlag: "🇲🇦", position: "DEF", blackjackValue: 6,  isGold: false, rating: 86 },
-        { id: "marquinhos",   name: "Marquinhos",        country: "Brasil",     countryFlag: "🇧🇷", position: "DEF", blackjackValue: 5,  isGold: false, rating: 86 },
-        { id: "osimhen",      name: "Osimhen",           country: "Nigéria",    countryFlag: "🇳🇬", position: "ATA", blackjackValue: 6,  isGold: false, rating: 85 },
-        { id: "davies",       name: "Alphonso Davies",   country: "Canadá",     countryFlag: "🇨🇦", position: "DEF", blackjackValue: 5,  isGold: false, rating: 85 },
-        { id: "rubendias",    name: "Rúben Dias",        country: "Portugal",   countryFlag: "🇵🇹", position: "DEF", blackjackValue: 4,  isGold: false, rating: 87 },
-        { id: "maignan",      name: "Maignan",           country: "França",     countryFlag: "🇫🇷", position: "GOL", blackjackValue: 3,  isGold: false, rating: 85 },
+        { id:"messi",       name:"Lionel Messi",      country:"Argentina",  countryFlag:"🇦🇷", position:"ATA", blackjackValue:10, isGold:false, rating:98 },
+        { id:"cr7",         name:"Cristiano Ronaldo", country:"Portugal",   countryFlag:"🇵🇹", position:"ATA", blackjackValue:10, isGold:false, rating:98 },
+        { id:"mbappe",      name:"Mbappé",            country:"França",     countryFlag:"🇫🇷", position:"ATA", blackjackValue:10, isGold:false, rating:94 },
+        { id:"haaland",     name:"Haaland",           country:"Noruega",    countryFlag:"🇳🇴", position:"ATA", blackjackValue:10, isGold:false, rating:92 },
+        { id:"vinijr",      name:"Vini Jr.",          country:"Brasil",     countryFlag:"🇧🇷", position:"ATA", blackjackValue:9,  isGold:false, rating:93 },
+        { id:"bellingham",  name:"Bellingham",        country:"Inglaterra", countryFlag:"🏴󠁧󠁢󠁥󠁮󠁧󠁿", position:"MEI", blackjackValue:9,  isGold:false, rating:91 },
+        { id:"salah",       name:"Salah",             country:"Egito",      countryFlag:"🇪🇬", position:"ATA", blackjackValue:9,  isGold:false, rating:90 },
+        { id:"debruyne",    name:"De Bruyne",         country:"Bélgica",    countryFlag:"🇧🇪", position:"MEI", blackjackValue:9,  isGold:false, rating:91 },
+        { id:"kane",        name:"Harry Kane",        country:"Inglaterra", countryFlag:"🏴󠁧󠁢󠁥󠁮󠁧󠁿", position:"ATA", blackjackValue:8,  isGold:false, rating:89 },
+        { id:"valverde",    name:"Valverde",          country:"Uruguai",    countryFlag:"🇺🇾", position:"MEI", blackjackValue:8,  isGold:false, rating:89 },
+        { id:"lautaro",     name:"Lautaro Martínez",  country:"Argentina",  countryFlag:"🇦🇷", position:"ATA", blackjackValue:8,  isGold:false, rating:88 },
+        { id:"lewandowski", name:"Lewandowski",       country:"Polônia",    countryFlag:"🇵🇱", position:"ATA", blackjackValue:8,  isGold:false, rating:88 },
+        { id:"rodri",       name:"Rodri",             country:"Espanha",    countryFlag:"🇪🇸", position:"MEI", blackjackValue:7,  isGold:false, rating:91 },
+        { id:"vandijk",     name:"Van Dijk",          country:"Holanda",    countryFlag:"🇳🇱", position:"DEF", blackjackValue:7,  isGold:false, rating:90 },
+        { id:"modric",      name:"Modrić",            country:"Croácia",    countryFlag:"🇭🇷", position:"MEI", blackjackValue:7,  isGold:false, rating:88 },
+        { id:"griezmann",   name:"Griezmann",         country:"França",     countryFlag:"🇫🇷", position:"ATA", blackjackValue:7,  isGold:false, rating:87 },
+        { id:"bernardo",    name:"Bernardo Silva",    country:"Portugal",   countryFlag:"🇵🇹", position:"MEI", blackjackValue:6,  isGold:false, rating:88 },
+        { id:"brunof",      name:"Bruno Fernandes",   country:"Portugal",   countryFlag:"🇵🇹", position:"MEI", blackjackValue:6,  isGold:false, rating:87 },
+        { id:"musiala",     name:"Musiala",           country:"Alemanha",   countryFlag:"🇩🇪", position:"MEI", blackjackValue:6,  isGold:false, rating:87 },
+        { id:"foden",       name:"Phil Foden",        country:"Inglaterra", countryFlag:"🏴󠁧󠁢󠁥󠁮󠁧󠁿", position:"MEI", blackjackValue:6,  isGold:false, rating:87 },
+        { id:"son",         name:"Son Heung-min",     country:"Coreia",     countryFlag:"🇰🇷", position:"ATA", blackjackValue:5,  isGold:false, rating:87 },
+        { id:"leao",        name:"Rafael Leão",       country:"Portugal",   countryFlag:"🇵🇹", position:"ATA", blackjackValue:5,  isGold:false, rating:87 },
+        { id:"odegaard",    name:"Ødegaard",          country:"Noruega",    countryFlag:"🇳🇴", position:"MEI", blackjackValue:5,  isGold:false, rating:87 },
+        { id:"pedri",       name:"Pedri",             country:"Espanha",    countryFlag:"🇪🇸", position:"MEI", blackjackValue:5,  isGold:false, rating:86 },
+        { id:"saka",        name:"Bukayo Saka",       country:"Inglaterra", countryFlag:"🏴󠁧󠁢󠁥󠁮󠁧󠁿", position:"ATA", blackjackValue:4,  isGold:false, rating:86 },
+        { id:"rice",        name:"Declan Rice",       country:"Inglaterra", countryFlag:"🏴󠁧󠁢󠁥󠁮󠁧󠁿", position:"MEI", blackjackValue:4,  isGold:false, rating:86 },
+        { id:"hakimi",      name:"Hakimi",            country:"Marrocos",   countryFlag:"🇲🇦", position:"DEF", blackjackValue:4,  isGold:false, rating:86 },
+        { id:"marquinhos",  name:"Marquinhos",        country:"Brasil",     countryFlag:"🇧🇷", position:"DEF", blackjackValue:4,  isGold:false, rating:86 },
+        { id:"osimhen",     name:"Osimhen",           country:"Nigéria",    countryFlag:"🇳🇬", position:"ATA", blackjackValue:3,  isGold:false, rating:85 },
+        { id:"davies",      name:"Alphonso Davies",   country:"Canadá",     countryFlag:"🇨🇦", position:"DEF", blackjackValue:3,  isGold:false, rating:85 },
+        { id:"rubendias",   name:"Rúben Dias",        country:"Portugal",   countryFlag:"🇵🇹", position:"DEF", blackjackValue:3,  isGold:false, rating:87 },
+        { id:"maignan",     name:"Maignan",           country:"França",     countryFlag:"🇫🇷", position:"GOL", blackjackValue:3,  isGold:false, rating:85 },
+        { id:"musiala2",    name:"Musiala",           country:"Alemanha",   countryFlag:"🇩🇪", position:"MEI", blackjackValue:2,  isGold:false, rating:87 },
+        { id:"foden2",      name:"Phil Foden",        country:"Inglaterra", countryFlag:"🏴󠁧󠁢󠁥󠁮󠁧󠁿", position:"MEI", blackjackValue:2,  isGold:false, rating:87 },
+        { id:"son2",        name:"Son Heung-min",     country:"Coreia",     countryFlag:"🇰🇷", position:"ATA", blackjackValue:2,  isGold:false, rating:87 },
+        { id:"leao2",       name:"Rafael Leão",       country:"Portugal",   countryFlag:"🇵🇹", position:"ATA", blackjackValue:2,  isGold:false, rating:87 },
+        { id:"saka2",       name:"Bukayo Saka",       country:"Inglaterra", countryFlag:"🏴󠁧󠁢󠁥󠁮󠁧󠁿", position:"ATA", blackjackValue:1,  isGold:false, rating:86 },
+        { id:"rice2",       name:"Declan Rice",       country:"Inglaterra", countryFlag:"🏴󠁧󠁢󠁥󠁮󠁧󠁿", position:"MEI", blackjackValue:1,  isGold:false, rating:86 },
+        { id:"osimhen2",    name:"Osimhen",           country:"Nigéria",    countryFlag:"🇳🇬", position:"ATA", blackjackValue:1,  isGold:false, rating:85 },
+        { id:"davies2",     name:"Alphonso Davies",   country:"Canadá",     countryFlag:"🇨🇦", position:"DEF", blackjackValue:1,  isGold:false, rating:85 },
       ];
 
       // ── AUDIO ──────────────────────────────────────────────
@@ -470,6 +512,18 @@
       };
 
       // ── STATE ──────────────────────────────────────────────
+
+      // ── TROFÉUS (Lendas Douradas) ──────────────────────────
+      const TROPHY_LEGENDS = [
+        { id:"beckenbauer", name:"Beckenbauer",       country:"Alemanha",   countryFlag:"🇩🇪", position:"DEF", isGold:true, legendBio:"O Kaiser. Campeão mundial como jogador e técnico.", rating:96 },
+        { id:"zico",        name:"Zico",              country:"Brasil",     countryFlag:"🇧🇷", position:"MEI", isGold:true, legendBio:"O Galinho de Quintino. Um dos maiores da história.", rating:94 },
+        { id:"garrincha",   name:"Garrincha",         country:"Brasil",     countryFlag:"🇧🇷", position:"ATA", isGold:true, legendBio:"A Alegria do Povo. Bicampeão invicto pela Seleção.", rating:96 },
+        { id:"ronaldinho",  name:"Ronaldinho Gaúcho", country:"Brasil",     countryFlag:"🇧🇷", position:"MEI", isGold:true, legendBio:"Melhor do mundo em 2004 e 2005. Arte pura.", rating:95 },
+        { id:"maradona",    name:"Diego Maradona",    country:"Argentina",  countryFlag:"🇦🇷", position:"MEI", isGold:true, legendBio:"A Mão de Deus. O gol do século. Ícone eterno.", rating:97 },
+        { id:"ronaldo",     name:"Ronaldo Fenômeno",  country:"Brasil",     countryFlag:"🇧🇷", position:"ATA", isGold:true, legendBio:"Artilheiro implacável do Penta nacional em 2002.", rating:97 },
+        { id:"pele",        name:"Pelé",              country:"Brasil",     countryFlag:"🇧🇷", position:"ATA", isGold:true, legendBio:"O Rei do Futebol. 3 Copas. O maior de todos.", rating:99 },
+      ];
+
       let state = {
         screen:'HOME', mode:'CPU', isMuted:false,
         playerDeck:[], opponentDeck:[], playerHand:[], opponentHand:[],
@@ -477,6 +531,8 @@
         coinWinner:null, activeTurn:null, isRevealed:false,
         goldCardToAssign:null, draftState:null, startingPlayer:'player',
         coinSelectedChoice:null, isCoinSpinning:false,
+        consecutiveWins:0,
+        userId: localStorage.getItem('bjUserId') || (() => { const id='user_'+Math.random().toString(36).slice(2,9); localStorage.setItem('bjUserId',id); return id; })(),
         // Firebase MP
         roomCode:null, myRole:null, // 'host' ou 'guest'
         fbListener:null
@@ -1017,6 +1073,22 @@
         davies:      'https://raw.githubusercontent.com/davidaosp-creator/copa2026-super-trunfo/main/app/src/main/res/drawable/img_card_davies.jpg',
         rubendias:   'https://raw.githubusercontent.com/davidaosp-creator/copa2026-super-trunfo/main/app/src/main/res/drawable/img_card_ruben_dias.jpg',
         maignan:     'https://raw.githubusercontent.com/davidaosp-creator/copa2026-super-trunfo/main/app/src/main/res/drawable/img_card_maignan.jpg',
+        musiala2:    'https://raw.githubusercontent.com/davidaosp-creator/copa2026-super-trunfo/main/app/src/main/res/drawable/img_card_musiala.jpg',
+        foden2:      'https://raw.githubusercontent.com/davidaosp-creator/copa2026-super-trunfo/main/app/src/main/res/drawable/img_card_foden.jpg',
+        son2:        'https://raw.githubusercontent.com/davidaosp-creator/copa2026-super-trunfo/main/app/src/main/res/drawable/img_card_son.jpg',
+        leao2:       'https://raw.githubusercontent.com/davidaosp-creator/copa2026-super-trunfo/main/app/src/main/res/drawable/img_card_leao.jpg',
+        saka2:       'https://raw.githubusercontent.com/davidaosp-creator/copa2026-super-trunfo/main/app/src/main/res/drawable/img_card_saka.jpg',
+        rice2:       'https://raw.githubusercontent.com/davidaosp-creator/copa2026-super-trunfo/main/app/src/main/res/drawable/img_card_rice.jpg',
+        osimhen2:    'https://raw.githubusercontent.com/davidaosp-creator/copa2026-super-trunfo/main/app/src/main/res/drawable/img_card_osimhen.jpg',
+        davies2:     'https://raw.githubusercontent.com/davidaosp-creator/copa2026-super-trunfo/main/app/src/main/res/drawable/img_card_davies.jpg',
+        // Lendas (troféus)
+        beckenbauer: 'https://raw.githubusercontent.com/davidaosp-creator/copa2026-super-trunfo/main/app/src/main/res/drawable/img_card_beckenbauer.jpg',
+        zico:        'https://raw.githubusercontent.com/davidaosp-creator/copa2026-super-trunfo/main/app/src/main/res/drawable/img_card_zico.jpg',
+        garrincha:   'https://raw.githubusercontent.com/davidaosp-creator/copa2026-super-trunfo/main/app/src/main/res/drawable/img_card_garrincha.jpg',
+        ronaldinho:  'https://raw.githubusercontent.com/davidaosp-creator/copa2026-super-trunfo/main/app/src/main/res/drawable/img_card_ronaldinho.jpg',
+        maradona:    'https://raw.githubusercontent.com/davidaosp-creator/copa2026-super-trunfo/main/app/src/main/res/drawable/img_card_maradona.jpg',
+        ronaldo:     'https://raw.githubusercontent.com/davidaosp-creator/copa2026-super-trunfo/main/app/src/main/res/drawable/img_card_ronaldo.jpg',
+        pele:        'https://raw.githubusercontent.com/davidaosp-creator/copa2026-super-trunfo/main/app/src/main/res/drawable/img_card_pele.jpg',
       };
 
       function createCardHtml(card, assignedValue, showFront) {
@@ -1193,15 +1265,98 @@
 
       function passToPlayerTurn(){ state.activeTurn='player';showBanner("CPU parou! Seu lance para superar.");updateInterface(); }
 
+
+      // ── SISTEMA DE TROFÉUS ──────────────────────────────────
+      async function loadTrophiesFromFirebase() {
+        if(!window.fbDb || !state.userId) return [];
+        try {
+          const snap = await window.fbGet(window.fbRef(window.fbDb, `trofeus/${state.userId}`));
+          if(snap.exists()) return snap.val().earned || [];
+        } catch(e){}
+        return [];
+      }
+
+      async function saveTrophyFirebase(trophyId) {
+        if(!window.fbDb || !state.userId) return;
+        const current = await loadTrophiesFromFirebase();
+        if(current.includes(trophyId)) return;
+        current.push(trophyId);
+        await window.fbUpdate(window.fbRef(window.fbDb, `trofeus/${state.userId}`), { earned: current }).catch(()=>{});
+      }
+
+      async function awardTrophy() {
+        const earned = await loadTrophiesFromFirebase();
+        const next = TROPHY_LEGENDS.find(t => !earned.includes(t.id));
+        if(!next) return; // já tem todos
+        state.consecutiveWins = 0;
+        await saveTrophyFirebase(next.id);
+        showTrophyModal(next);
+      }
+
+      function showTrophyModal(legend) {
+        const BASE = "https://raw.githubusercontent.com/davidaosp-creator/copa2026-super-trunfo/main/app/src/main/res/drawable/";
+        const imgId = legend.id === 'vinijr' ? 'vini' : legend.id === 'rubendias' ? 'ruben_dias' : legend.id === 'brunof' ? 'bruno_f' : legend.id === 'debruyne' ? 'de_bruyne' : legend.id;
+        document.getElementById('trophy-modal').classList.remove('hidden');
+        document.getElementById('trophy-modal-name').innerText = legend.name;
+        document.getElementById('trophy-modal-bio').innerText = legend.legendBio;
+        document.getElementById('trophy-modal-flag').innerText = legend.countryFlag;
+        document.getElementById('trophy-modal-img').src = BASE + 'img_card_' + imgId + '.jpg';
+      }
+
+      async function openTrophyRoom() {
+        state.screen = 'TROPHY_ROOM';
+        const earned = await loadTrophiesFromFirebase();
+        const BASE = "https://raw.githubusercontent.com/davidaosp-creator/copa2026-super-trunfo/main/app/src/main/res/drawable/";
+        let html = '';
+        TROPHY_LEGENDS.forEach((leg, i) => {
+          const unlocked = earned.includes(leg.id);
+          const imgId = leg.id === 'brunof' ? 'bruno_f' : leg.id === 'debruyne' ? 'de_bruyne' : leg.id === 'rubendias' ? 'ruben_dias' : leg.id;
+          const imgUrl = BASE + 'img_card_' + imgId + '.jpg';
+          if(unlocked) {
+            html += `<div class="flex flex-col items-center gap-1">
+              <div class="relative w-24 h-32 rounded-xl overflow-hidden border-2 border-yellow-400 shadow-lg shadow-yellow-400/30">
+                <img src="${imgUrl}" class="w-full h-full object-cover object-top" />
+                <div class="absolute inset-0 bg-gradient-to-b from-yellow-300/10 to-amber-500/20"></div>
+              </div>
+              <span class="text-yellow-400 font-black text-xs text-center">${leg.countryFlag} ${leg.name}</span>
+              <span class="text-yellow-600 text-[9px] text-center">${leg.legendBio.slice(0,40)}...</span>
+            </div>`;
+          } else {
+            html += `<div class="flex flex-col items-center gap-1">
+              <div class="w-24 h-32 rounded-xl border-2 border-slate-700 bg-slate-900 flex flex-col items-center justify-center gap-1">
+                <span class="text-3xl">🔒</span>
+                <span class="text-slate-600 text-[9px] text-center px-1">Ganhe 5x seguidas</span>
+              </div>
+              <span class="text-slate-600 font-bold text-xs text-center">${i+1}º Troféu</span>
+            </div>`;
+          }
+        });
+        document.getElementById('trophy-room-grid').innerHTML = html;
+        updateInterface();
+      }
+
       function resolveMatchWinner(p,o) {
         let w;
         if(p>21&&o>21)w=p<o?'player':'opponent';
         else if(p>21)w='opponent';else if(o>21)w='player';
         else if(p===o)w='empate';
         else w=p>o?'player':'opponent';
-        if(w==='player'){state.playerScore++;sounds.playCrowdCheer();showBanner(`Você venceu! ⚽ (${p} x ${o})`);}
-        else if(w==='opponent'){state.opponentScore++;sounds.playCrowdOoh();showBanner(`Rival venceu! 🛡️ (${o} x ${p})`);}
-        else{sounds.playCrowdCheer();showBanner(`Empate! 🥅 (${p} x ${o})`);}
+        if(w==='player'){
+          state.playerScore++;
+          state.consecutiveWins=(state.consecutiveWins||0)+1;
+          sounds.playCrowdCheer();
+          showBanner(`Você venceu! ⚽ (${p} x ${o}) — ${state.consecutiveWins} seguida(s)!`);
+          if(state.consecutiveWins>=5) awardTrophy();
+        } else if(w==='opponent'){
+          state.opponentScore++;
+          state.consecutiveWins=0;
+          sounds.playCrowdOoh();
+          showBanner(`Rival venceu! 🛡️ (${o} x ${p})`);
+        } else {
+          state.consecutiveWins=0;
+          sounds.playCrowdCheer();
+          showBanner(`Empate! 🥅 (${p} x ${o})`);
+        }
 
         // Atualizar placar no Firebase se online
         if(state.mode==='MP_ONLINE' && state.roomCode && window.fbDb) {
@@ -1252,6 +1407,10 @@
 
       // ── INTERFACE ──────────────────────────────────────────
       function updateInterface() {
+        // Atualizar contador na sala de troféus se visível
+        const streakEl = document.getElementById('trophy-streak-display');
+        if(streakEl) streakEl.innerText = state.consecutiveWins || 0;
+
         document.getElementById('score-player').innerText=state.playerScore;
         document.getElementById('score-opponent').innerText=state.opponentScore;
         const badge=document.getElementById('game-turn-badge');
