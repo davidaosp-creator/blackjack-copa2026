@@ -465,12 +465,13 @@
         </div>
         <h3 id="end-winner-announcement" class="text-xl font-black text-green-400">🏆 CAMPEÃO DO MUNDO!</h3>
         <p id="end-winner-description" class="text-xs text-slate-400 mt-2">Seu time jogou um futebol de elite!</p>
+        <p id="end-streak-info" class="text-xs text-amber-400 mt-1 font-bold hidden"></p>
         <div class="mt-6 space-y-2">
           <button onclick="restartMatch()" class="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-400 text-slate-950 font-black py-3.5 rounded-xl text-xs tracking-wider uppercase cursor-pointer border-0">
-            ⚽ Jogar Novamente!
+            ⚽ Revanche na Mesma Sala!
           </button>
-          <button onclick="changeScreen('HOME')" class="w-full bg-slate-950 hover:bg-slate-900 border border-slate-800 text-slate-300 font-bold py-3 rounded-xl text-xs uppercase cursor-pointer">
-            Voltar à Tela de Entrada
+          <button onclick="sairSalaOnline()" class="w-full bg-slate-950 hover:bg-slate-900 border border-slate-800 text-slate-300 font-bold py-3 rounded-xl text-xs uppercase cursor-pointer">
+            Sair da Sala
           </button>
         </div>
       </div>
@@ -539,7 +540,100 @@
         playCardDraw: () => { if (state.isMuted) return; try { const ctx=getAudioContext(),t=ctx.currentTime,dur=.2,buf=ctx.createBuffer(1,ctx.sampleRate*dur,ctx.sampleRate),data=buf.getChannelData(0); for(let i=0;i<data.length;i++)data[i]=Math.random()*2-1; const n=ctx.createBufferSource();n.buffer=buf;const f=ctx.createBiquadFilter();f.type='highpass';f.frequency.setValueAtTime(1200,t);const g=ctx.createGain();g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.06,t+.02);g.gain.exponentialRampToValueAtTime(.001,t+dur);n.connect(f);f.connect(g);g.connect(ctx.destination);n.start(t);n.stop(t+dur); }catch(e){} },
         playCrowdCheer: () => { if (state.isMuted) return; try { const ctx=getAudioContext(),t=ctx.currentTime,dur=2,buf=ctx.createBuffer(1,ctx.sampleRate*dur,ctx.sampleRate),data=buf.getChannelData(0); for(let i=0;i<data.length;i++)data[i]=Math.random()*2-1; const n=ctx.createBufferSource();n.buffer=buf;const f=ctx.createBiquadFilter();f.type='bandpass';f.frequency.setValueAtTime(500,t);const g=ctx.createGain();g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.2,t+.25);g.gain.exponentialRampToValueAtTime(.001,t+dur);n.connect(f);f.connect(g);g.connect(ctx.destination);n.start(t);n.stop(t+dur); }catch(e){} },
         playCrowdOoh: () => { if (state.isMuted) return; try { const ctx=getAudioContext(),t=ctx.currentTime,dur=1,buf=ctx.createBuffer(1,ctx.sampleRate*dur,ctx.sampleRate),data=buf.getChannelData(0); for(let i=0;i<data.length;i++)data[i]=Math.random()*2-1; const n=ctx.createBufferSource();n.buffer=buf;const f=ctx.createBiquadFilter();f.type='bandpass';f.frequency.setValueAtTime(320,t);const g=ctx.createGain();g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.15,t+.1);g.gain.exponentialRampToValueAtTime(.001,t+dur);n.connect(f);f.connect(g);g.connect(ctx.destination);n.start(t);n.stop(t+dur); }catch(e){} },
-        playRefereeWhistle: () => { if (state.isMuted) return; try { const ctx=getAudioContext(),t=ctx.currentTime,blow=(d)=>{ const ct=t+d,o1=ctx.createOscillator(),o2=ctx.createOscillator(),g=ctx.createGain(),lfo=ctx.createOscillator(),lg=ctx.createGain(); o1.frequency.setValueAtTime(2500,ct);o2.frequency.setValueAtTime(2560,ct);lfo.frequency.setValueAtTime(55,ct);lg.gain.setValueAtTime(100,ct);lfo.connect(lg);lg.connect(o1.frequency);lg.connect(o2.frequency);g.gain.setValueAtTime(0,ct);g.gain.linearRampToValueAtTime(.2,ct+.015);g.gain.exponentialRampToValueAtTime(.001,ct+.25);o1.connect(g);o2.connect(g);g.connect(ctx.destination);lfo.start(ct);o1.start(ct);o2.start(ct);lfo.stop(ct+.26);o1.stop(ct+.26);o2.stop(ct+.26); }; blow(0);blow(.25); }catch(e){} }
+        playRefereeWhistle: () => { // apito curto (início de rodada)
+          if(state.isMuted) return;
+          try {
+            const ctx=getAudioContext(), t=ctx.currentTime;
+            const blow=(delay, dur)=>{
+              const ct=t+delay;
+              const o1=ctx.createOscillator(), o2=ctx.createOscillator(), o3=ctx.createOscillator();
+              const lfo=ctx.createOscillator(), lg=ctx.createGain();
+              const g=ctx.createGain(), dist=ctx.createWaveShaper();
+              // Frequências do apito de árbitro real (palheta de metal ~2700-2900Hz + harmônicos)
+              o1.type='sawtooth'; o1.frequency.setValueAtTime(2750,ct); o1.frequency.linearRampToValueAtTime(2800,ct+dur*.3);
+              o2.type='sawtooth'; o2.frequency.setValueAtTime(2900,ct); o2.frequency.linearRampToValueAtTime(2850,ct+dur*.5);
+              o3.type='square';   o3.frequency.setValueAtTime(1380,ct);
+              // Tremulo (vibração da palheta ~45Hz)
+              lfo.type='sine'; lfo.frequency.setValueAtTime(45,ct);
+              lg.gain.setValueAtTime(60,ct);
+              lfo.connect(lg); lg.connect(o1.frequency); lg.connect(o2.frequency);
+              // Distorção leve para soar metálico
+              const curve=new Float32Array(256);
+              for(let i=0;i<256;i++){const x=i*2/256-1; curve[i]=x*(3+6*Math.abs(x))/(1+6*Math.abs(x));}
+              dist.curve=curve;
+              // Envelope realista: ataque rápido, sustain, queda
+              g.gain.setValueAtTime(0,ct);
+              g.gain.linearRampToValueAtTime(.35,ct+.02);
+              g.gain.setValueAtTime(.32,ct+dur*.6);
+              g.gain.exponentialRampToValueAtTime(.001,ct+dur);
+              o1.connect(dist); o2.connect(dist); o3.connect(dist); dist.connect(g); g.connect(ctx.destination);
+              lfo.start(ct); o1.start(ct); o2.start(ct); o3.start(ct);
+              lfo.stop(ct+dur+.05); o1.stop(ct+dur+.05); o2.stop(ct+dur+.05); o3.stop(ct+dur+.05);
+            };
+            blow(0, .35);
+          } catch(e){}
+        },
+        playRefereeWhistleLong: () => { // apito longo (fim de rodada)
+          if(state.isMuted) return;
+          try {
+            const ctx=getAudioContext(), t=ctx.currentTime;
+            const blow=(delay, dur)=>{
+              const ct=t+delay;
+              const o1=ctx.createOscillator(), o2=ctx.createOscillator(), o3=ctx.createOscillator();
+              const lfo=ctx.createOscillator(), lg=ctx.createGain();
+              const g=ctx.createGain(), dist=ctx.createWaveShaper();
+              o1.type='sawtooth'; o1.frequency.setValueAtTime(2750,ct); o1.frequency.linearRampToValueAtTime(2820,ct+dur*.4);
+              o2.type='sawtooth'; o2.frequency.setValueAtTime(2900,ct); o2.frequency.linearRampToValueAtTime(2860,ct+dur*.5);
+              o3.type='square';   o3.frequency.setValueAtTime(1380,ct);
+              lfo.type='sine'; lfo.frequency.setValueAtTime(45,ct);
+              lg.gain.setValueAtTime(60,ct);
+              lfo.connect(lg); lg.connect(o1.frequency); lg.connect(o2.frequency);
+              const curve=new Float32Array(256);
+              for(let i=0;i<256;i++){const x=i*2/256-1; curve[i]=x*(3+6*Math.abs(x))/(1+6*Math.abs(x));}
+              dist.curve=curve;
+              g.gain.setValueAtTime(0,ct);
+              g.gain.linearRampToValueAtTime(.38,ct+.02);
+              g.gain.setValueAtTime(.36,ct+dur*.75);
+              g.gain.exponentialRampToValueAtTime(.001,ct+dur);
+              o1.connect(dist); o2.connect(dist); o3.connect(dist); dist.connect(g); g.connect(ctx.destination);
+              lfo.start(ct); o1.start(ct); o2.start(ct); o3.start(ct);
+              lfo.stop(ct+dur+.05); o1.stop(ct+dur+.05); o2.stop(ct+dur+.05); o3.stop(ct+dur+.05);
+            };
+            blow(0, .9);
+          } catch(e){}
+        },
+        playRefereeWhistleTriple: () => { // apito triplo (fim de partida)
+          if(state.isMuted) return;
+          try {
+            const ctx=getAudioContext(), t=ctx.currentTime;
+            const blow=(delay, dur)=>{
+              const ct=t+delay;
+              const o1=ctx.createOscillator(), o2=ctx.createOscillator(), o3=ctx.createOscillator();
+              const lfo=ctx.createOscillator(), lg=ctx.createGain();
+              const g=ctx.createGain(), dist=ctx.createWaveShaper();
+              o1.type='sawtooth'; o1.frequency.setValueAtTime(2750,ct);
+              o2.type='sawtooth'; o2.frequency.setValueAtTime(2900,ct);
+              o3.type='square';   o3.frequency.setValueAtTime(1380,ct);
+              lfo.type='sine'; lfo.frequency.setValueAtTime(45,ct);
+              lg.gain.setValueAtTime(60,ct);
+              lfo.connect(lg); lg.connect(o1.frequency); lg.connect(o2.frequency);
+              const curve=new Float32Array(256);
+              for(let i=0;i<256;i++){const x=i*2/256-1; curve[i]=x*(3+6*Math.abs(x))/(1+6*Math.abs(x));}
+              dist.curve=curve;
+              g.gain.setValueAtTime(0,ct);
+              g.gain.linearRampToValueAtTime(.4,ct+.02);
+              g.gain.setValueAtTime(.38,ct+dur*.65);
+              g.gain.exponentialRampToValueAtTime(.001,ct+dur);
+              o1.connect(dist); o2.connect(dist); o3.connect(dist); dist.connect(g); g.connect(ctx.destination);
+              lfo.start(ct); o1.start(ct); o2.start(ct); o3.start(ct);
+              lfo.stop(ct+dur+.05); o1.stop(ct+dur+.05); o2.stop(ct+dur+.05); o3.stop(ct+dur+.05);
+            };
+            // Triplo: curto - curto - longo
+            blow(0,   .28);
+            blow(.38, .28);
+            blow(.76, .85);
+          } catch(e){}
+        }
       };
 
       // ── STATE ──────────────────────────────────────────────
@@ -736,7 +830,15 @@
         }
 
         if(data.status==='ended') {
-          // Mostrar resultado final
+          // Sala encerrada pelo host — guest volta ao menu
+          if(state.myRole==='guest' && state.screen!=='END'){
+            showBanner("O host encerrou a sala.");
+            setTimeout(()=>changeScreen('HOME'), 2000);
+          }
+        }
+        if(data.status==='playing' && state.screen==='WAITING_ROOM' && data.rematchReady) {
+          // Revanche iniciada pelo host — iniciar nova partida
+          iniciarJogoOnline(data);
         }
       }
 
@@ -1297,6 +1399,17 @@
       function passToPlayerTurn(){ state.activeTurn='player';showBanner("CPU parou! Seu lance para superar.");updateInterface(); }
 
 
+      function sairSalaOnline(){
+        // Host apaga a sala; guest apenas sai
+        if(state.mode==='MP_ONLINE' && state.roomCode && window.fbDb){
+          if(state.myRole==='host'){
+            window.fbUpdate(window.fbRef(window.fbDb,`salas/${state.roomCode}`),{status:'ended'}).catch(()=>{});
+          }
+        }
+        state.roomCode=null; state.myRole=null; state.mode=null;
+        changeScreen('HOME');
+      }
+
       // ── SISTEMA DE TROFÉUS ──────────────────────────────────
       async function loadTrophiesFromFirebase() {
         if(!window.fbDb || !state.userId) return [];
@@ -1397,7 +1510,8 @@
         }
 
         setTimeout(()=>{
-          if(state.playerScore>=2||state.opponentScore>=2){sounds.playRefereeWhistle();openGameOverScreen();}
+          if(state.playerScore>=2||state.opponentScore>=2){openGameOverScreen();}
+        else{sounds.playRefereeWhistleLong();}
           else{showBanner("Próxima rodada!");setTimeout(()=>{
             if(state.mode==='MP_ONLINE'){
               // Resetar Firebase para nova rodada
@@ -1420,17 +1534,45 @@
         const a=document.getElementById('end-winner-announcement'),d=document.getElementById('end-winner-description');
         if(state.playerScore>=2){a.innerText="🏆 CAMPEÃO DO MUNDO!";a.className="text-xl font-black text-green-400";d.innerText="Seu time dominou com raça!";}
         else{a.innerText="🥈 RIVAL LEVOU A TAÇA!";a.className="text-xl font-black text-rose-500";d.innerText="Tente novamente com outra estratégia!";}
-        // Limpar sala no Firebase
-        if(state.mode==='MP_ONLINE' && state.roomCode && window.fbDb) {
-          window.fbUpdate(window.fbRef(window.fbDb,`salas/${state.roomCode}`),{status:'ended'}).catch(()=>{});
+        sounds.playRefereeWhistleTriple();
+        // Mostrar streak
+        const streakInfoEl = document.getElementById('end-streak-info');
+        if(streakInfoEl && (state.consecutiveWins||0) > 0){
+          streakInfoEl.innerText = `🔥 ${state.consecutiveWins} vitória(s) consecutiva(s)!`;
+          streakInfoEl.classList.remove('hidden');
+        } else if(streakInfoEl){
+          streakInfoEl.classList.add('hidden');
         }
+        // Não encerrar sala — manter para revanche
         changeScreen('END');
       }
 
       function restartMatch(){
-        state.playerScore=0;state.opponentScore=0;sounds.playRefereeWhistle();
-        if(state.mode==='MP_ONLINE'){
-          initCoinFlipScreenOnline();
+        state.playerScore=0; state.opponentScore=0; state.consecutiveWins=state.consecutiveWins||0;
+        sounds.playRefereeWhistle();
+        if(state.mode==='MP_ONLINE' && state.roomCode && window.fbDb){
+          if(state.myRole==='host'){
+            // Host recria o baralho e reseta a sala para nova partida
+            const deck=[...ALL_PLAYERS].sort(()=>Math.random()-.5);
+            const half=Math.floor(deck.length/2);
+            const hostDeck=deck.slice(0,half).map(c=>c.id);
+            const guestDeck=deck.slice(half).map(c=>c.id);
+            window.fbUpdate(window.fbRef(window.fbDb,`salas/${state.roomCode}`),{
+              status:'rematch',
+              hostDeck, guestDeck,
+              hostHand:[], guestHand:[],
+              hostStood:false, guestStood:false,
+              coinSpun:false, coinResult:null,
+              draftState:null, activeTurn:null,
+              hostScore:0, guestScore:0,
+              rematchReady: (state.roomCode + Date.now())
+            }).then(()=>{
+              window.fbUpdate(window.fbRef(window.fbDb,`salas/${state.roomCode}`),{status:'playing'});
+            }).catch(()=>{});
+          }
+          // Ambos aguardam o Firebase disparar a nova partida via escutarSala
+          showBanner("Aguardando revanche...");
+          changeScreen('WAITING_ROOM');
         } else {
           initCoinFlipScreen();
         }
