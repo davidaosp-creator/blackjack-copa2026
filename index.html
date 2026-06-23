@@ -599,14 +599,12 @@
       }
 
       function processarAtualizacaoSala(data) {
-        // Quando o guest entrou (host vê isso)
-        if(data.status==='playing' && state.myRole==='host' && state.screen==='WAITING-ROOM' || state.screen==='screen-waiting-room') {
-          if(state.screen==='WAITING_ROOM') {
-            iniciarJogoOnline(data);
-          }
+        // Host detecta que guest entrou → iniciar jogo
+        if(data.status==='playing' && state.myRole==='host' && state.screen==='WAITING_ROOM') {
+          iniciarJogoOnline(data);
         }
-        // Guest: quando sala fica 'playing', iniciar
-        if(data.status==='playing' && state.myRole==='guest' && (state.screen==='MP_MENU' || state.screen==='HOME')) {
+        // Guest: quando sala fica 'playing', iniciar (vindo de qualquer tela de espera)
+        if(data.status==='playing' && state.myRole==='guest' && (state.screen==='MP_MENU' || state.screen==='HOME' || state.screen==='WAITING_ROOM')) {
           iniciarJogoOnline(data);
         }
 
@@ -724,43 +722,71 @@
       function sincronizarEstadoJogo(data) {
         const idToCard=(id)=>ALL_PLAYERS.find(p=>p.id===id);
 
-        // Atualizar mãos do adversário (que o outro jogador controlou)
-        if(state.myRole==='host') {
-          // Minha mão (host) é atualizada localmente; mão do guest vem do Firebase
-          if(data.guestHand && data.guestHand.length>0) {
-            const guestHandFb=data.guestHand.map(i=>({id:i.id,card:idToCard(i.cardId),assignedValue:i.assignedValue})).filter(i=>i.card);
-            if(JSON.stringify(guestHandFb.map(i=>i.id))!==JSON.stringify(state.opponentHand.map(i=>i.id))) {
-              state.opponentHand=guestHandFb;
-              updateInterface();
+        // Qual é a mão do adversário no Firebase?
+        const oppHandRaw = state.myRole==='host' ? data.guestHand : data.hostHand;
+        const oppStood   = state.myRole==='host' ? data.guestStood : data.hostStood;
+        const myStood    = state.myRole==='host' ? data.hostStood  : data.guestStood;
+
+        // Atualizar mão do adversário se mudou
+        if(oppHandRaw && oppHandRaw.length > 0) {
+          const oppHandFb = oppHandRaw.map(i=>({id:i.id, card:idToCard(i.cardId), assignedValue:i.assignedValue})).filter(i=>i.card);
+          const fbIds  = oppHandFb.map(i=>i.id).join(',');
+          const locIds = state.opponentHand.map(i=>i.id).join(',');
+          if(fbIds !== locIds) {
+            const prevOppLen = state.opponentHand.length;
+            state.opponentHand = oppHandFb;
+
+            // Adversário acabou de jogar uma carta → avançar draft se ainda estivermos nessa fase
+            if(state.draftState && state.draftState !== 'PLAY_PHASE' && oppHandFb.length > prevOppLen) {
+              // É a vez do adversário no draft — consome a carta dele e avança
+              // (a carta já está na mão, só precisamos avançar o estado)
+              const p1 = state.startingPlayer, p2 = p1==='player'?'opponent':'player';
+              // Determinar qual etapa do draft era a do adversário
+              const oppTurnStates = [
+                (p1==='opponent'?'P1_C1':null),
+                (p2==='opponent'?'P2_C1':null),
+                (p1==='opponent'?'P1_C2':null),
+                (p2==='opponent'?'P2_C2':null),
+              ].filter(Boolean);
+              if(oppTurnStates.includes(state.draftState)) {
+                advanceDraft();
+                return; // advanceDraft chama updateInterface
+              }
             }
-          }
-          if(data.guestStood && state.activeTurn==='opponent' && !state.isRevealed) {
-            state.activeTurn='player';
-            showBanner("Amigo parou! Sua vez agora.");
-            updateInterface();
-          }
-        } else {
-          // Guest: minha mão é local, mão do host vem do Firebase
-          if(data.hostHand && data.hostHand.length>0) {
-            const hostHandFb=data.hostHand.map(i=>({id:i.id,card:idToCard(i.cardId),assignedValue:i.assignedValue})).filter(i=>i.card);
-            if(JSON.stringify(hostHandFb.map(i=>i.id))!==JSON.stringify(state.opponentHand.map(i=>i.id))) {
-              state.opponentHand=hostHandFb;
-              updateInterface();
-            }
-          }
-          if(data.hostStood && state.activeTurn==='opponent' && !state.isRevealed) {
-            state.activeTurn='player';
-            showBanner("Amigo parou! Sua vez agora.");
+
             updateInterface();
           }
         }
 
-        // Verificar se ambos pararam → resolver
-        if(data.hostStood && data.guestStood && !state.isRevealed) {
+        // Adversário parou na fase de jogo → libera minha vez
+        if(oppStood && state.activeTurn==='opponent' && !state.isRevealed && state.draftState==='PLAY_PHASE') {
+          state.activeTurn='player';
+          showBanner("Amigo parou! Sua vez agora.");
+          updateInterface();
+        }
+
+        // Sincronizar draftState e activeTurn do Firebase
+        if(data.draftState && data.draftState !== state.draftState) {
+          state.draftState = data.draftState;
+          // Converter activeTurn do Firebase (host/guest) para local (player/opponent)
+          if(data.activeTurn) {
+            const isMyTurn = data.activeTurn === state.myRole;
+            state.activeTurn = isMyTurn ? 'player' : 'opponent';
+            if(isMyTurn && state.draftState !== 'PLAY_PHASE') {
+              showBanner("Sua vez de escolher um jogador! 🃏");
+            } else if(isMyTurn && state.draftState === 'PLAY_PHASE') {
+              showBanner("Sua vez! Puxe carta ou pare.");
+            }
+          }
+          updateInterface();
+        }
+
+        // Ambos pararam → resolver
+        if(data.hostStood && data.guestStood && !state.isRevealed && state.draftState==='PLAY_PHASE') {
           state.isRevealed=true;
-          const myScore=getHandScore(state.playerHand);
-          const oppScore=getHandScore(state.opponentHand);
-          setTimeout(()=>resolveMatchWinner(myScore,oppScore),800);
+          const myScore  = getHandScore(state.playerHand);
+          const oppScore = getHandScore(state.opponentHand);
+          setTimeout(()=>resolveMatchWinner(myScore, oppScore), 800);
         }
       }
 
@@ -934,7 +960,8 @@
           </div>`;
         }
         const imgFile=IMG_FILE_MAP[card.id];
-        const imgUrl=imgFile?`https://raw.githubusercontent.com/Nildo-hub/copa2026-blackjack/main/img/${imgFile}.jpg`:null;
+        // Tenta o repo principal; se não carregar, o onerror mostra a camisa SVG
+        const imgUrl=imgFile?`https://raw.githubusercontent.com/davidaosp-creator/copa2026-super-trunfo/refs/heads/main/img/${imgFile}.jpg`:null;
         const displayVal=assignedValue!==null&&assignedValue!==undefined?assignedValue:card.blackjackValue;
         const kit=getKitColors(card.country);
         const shirtNumber=card.rating%10||card.rating;
@@ -949,7 +976,7 @@
               <span class="text-[8px] font-bold px-1 py-0.5 rounded ${card.isGold?'bg-slate-950/30 text-slate-950':'bg-slate-950/50 text-slate-400'}">${card.position}</span>
             </div>
             <div class="card-img-wrap w-full flex items-center justify-center relative overflow-hidden rounded-lg my-0.5" style="background:linear-gradient(135deg,${kit.p}22,${kit.s}22)">
-              ${imgUrl?`<img src="${imgUrl}" alt="${card.name}" class="w-full h-full object-cover object-top" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" />`:''}
+              ${imgUrl?`<img src="${imgUrl}" alt="${card.name}" class="w-full h-full object-cover object-top" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" loading="lazy" />`:''}
               <div class="${imgUrl?'hidden':'flex'} w-full h-full items-center justify-center relative" style="display:${imgUrl?'none':'flex'}">
                 <svg viewBox="0 0 100 80" class="w-full h-full opacity-80" xmlns="http://www.w3.org/2000/svg">
                   <path d="M 30 15 L 70 15 L 75 80 L 25 80 Z" fill="${kit.p}" stroke="${kit.s}" stroke-width="3" />
@@ -997,7 +1024,17 @@
           else{showBanner("Sua vez de fechar os reforços!");}}
         else if(state.draftState==='P2_C2'){state.draftState='PLAY_PHASE';state.activeTurn=p1;
           if(p1==='player'){showBanner("Puxe craque ou pare de campo!");}
-          else{showBanner("CPU inicia o ataque...");if(state.mode==='CPU')setTimeout(()=>runCpuLogic(),1500);}}
+          else if(state.mode==='CPU'){showBanner("CPU inicia o ataque...");setTimeout(()=>runCpuLogic(),1500);}
+          else if(state.mode==='MP_ONLINE'){showBanner("Amigo ataca primeiro! Aguarde...");}}
+
+        // Publicar draftState no Firebase para o outro dispositivo sincronizar
+        if(state.mode==='MP_ONLINE' && state.roomCode && window.fbDb) {
+          const myRole=state.myRole;
+          const fbActiveTurn=state.activeTurn==='player'?myRole:(myRole==='host'?'guest':'host');
+          window.fbUpdate(window.fbRef(window.fbDb,`salas/${state.roomCode}`),{
+            draftState:state.draftState, activeTurn:fbActiveTurn
+          }).catch(()=>{});
+        }
         updateInterface();
       }
 
