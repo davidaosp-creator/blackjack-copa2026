@@ -834,6 +834,8 @@
         document.getElementById('coin-waiting-guest').classList.add('hidden');
         document.getElementById('coin-selection-container').classList.add('hidden');
 
+        setTimeout(()=>sounds.playCoin(),0);setTimeout(()=>sounds.playCoin(),500);setTimeout(()=>sounds.playCoin(),1000);setTimeout(()=>sounds.playCoin(),1500);setTimeout(()=>sounds.playCoin(),1950);
+
         setTimeout(()=>{
           rotor.className="w-[100px] h-[100px] rounded-full relative select-none";
           rotor.style.transform=outcome==='coroa'?'rotateY(180deg)':'rotateY(0deg)';
@@ -991,7 +993,7 @@
         state.isCoinSpinning=true;
         document.getElementById('coin-spin-btn').classList.add('hidden');
         document.getElementById('coin-selection-container').classList.add('hidden');
-        sounds.playCoin();setTimeout(()=>sounds.playCoin(),650);setTimeout(()=>sounds.playCoin(),1300);
+        setTimeout(()=>sounds.playCoin(),0);setTimeout(()=>sounds.playCoin(),500);setTimeout(()=>sounds.playCoin(),1000);setTimeout(()=>sounds.playCoin(),1500);setTimeout(()=>sounds.playCoin(),1950);
 
         const outcome=state.mode==='MP_ONLINE' && state.coinOutcome ? state.coinOutcome : ['cara','coroa'][Math.floor(Math.random()*2)];
         const isWin=state.coinSelectedChoice===outcome;
